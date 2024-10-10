@@ -57,7 +57,7 @@ Then, rebuild and switch into your new system (using `nixos-rebuild`). After a r
 After restarting your system, to verify that the driver works start up the yeetmouse GUI:
 
 ```sh
-sudo yeetmouse
+sudo -E yeetmouse
 ```
 
 ## Manual Overlay Installation

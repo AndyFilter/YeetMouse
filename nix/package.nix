@@ -45,19 +45,6 @@ let
 
     postInstall = ''
       install -Dm755 $sourceRoot/gui/YeetMouseGui $out/bin/yeetmouse
-      # Renaming this to 98- so it takes precedence over `udev.extraRules`
-      install -D $src/install_files/udev/99-leetmouse.rules $out/lib/udev/rules.d/98-leetmouse.rules
-      install -Dm755 $src/install_files/udev/leetmouse_bind $out/lib/udev/rules.d/leetmouse_bind
-      patchShebangs $out/lib/udev/rules.d/leetmouse_bind
-      # This is set so the udev script can find the right binaries, however, it overrides the Nix-injected PATH
-      substituteInPlace $out/lib/udev/rules.d/98-leetmouse.rules \
-        --replace "PATH='/sbin:/bin:/usr/sbin:/usr/bin'" ""
-      # Here we instead inject a PATH from Nix for what the script needs
-      wrapProgram $out/lib/udev/rules.d/leetmouse_bind \
-        --prefix PATH : ${lib.makeBinPath [ bash coreutils ]}
-      # Nix complains if we don't use an absolute path here
-      substituteInPlace $out/lib/udev/rules.d/98-leetmouse.rules \
-        --replace "leetmouse_bind" "$out/lib/udev/rules.d/leetmouse_bind"
     '';
 
     buildFlags = [ "modules" ];

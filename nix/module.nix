@@ -84,7 +84,7 @@ in {
     enable = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Enable yeetmouse udev rules and kernel module to add configurable mouse acceleration";
+      description = "Enable yeetmouse kernel module to add configurable mouse acceleration";
     };
 
     parameters = lib.mkOption {
@@ -99,7 +99,6 @@ in {
     boot.extraModulePackages = [ yeetmouse ];
     environment.systemPackages = [ yeetmouse ];
     services.udev = {
-      packages = [ yeetmouse ];
       extraRules = let
         echo = "${pkgs.coreutils}/bin/echo";
         yeetmouseConfig = with cfg.parameters; pkgs.writeShellScriptBin "yeetmouseConfig" ''

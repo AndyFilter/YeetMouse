@@ -4,6 +4,8 @@ pkgs @ {
   bash,
   stdenv,
   coreutils,
+  writeShellScript,
+  makeDesktopItem,
   kernel ? pkgs.linuxPackages.kernel,
   ...
 }:
@@ -21,7 +23,11 @@ let
     };
 
     setSourceRoot = "export sourceRoot=$(pwd)/source";
-    nativeBuildInputs = kernel.moduleBuildDependencies ++ [ pkgs.makeWrapper pkgs.autoPatchelfHook ];
+    nativeBuildInputs = with pkgs; kernel.moduleBuildDependencies ++ [
+      makeWrapper
+      autoPatchelfHook
+      copyDesktopItems
+    ];
     buildInputs = [
       stdenv.cc.cc.lib
       pkgs.glfw3
@@ -63,6 +69,28 @@ let
     buildFlags = [ "modules" ];
     installFlags = [ "INSTALL_MOD_PATH=${placeholder "out"}" ];
     installTargets = [ "modules_install" ];
+
+    desktopItems = [
+      (makeDesktopItem {
+        name = pname;
+        exec = writeShellScript "yeetmouse.sh" /*bash*/ ''
+          if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
+            xhost +SI:localuser:root
+            pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
+            xhost -SI:localuser:root
+          else
+            pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
+          fi
+        '';
+        type = "Application";
+        desktopName = "Yeetmouse GUI";
+        comment = "Yeetmouse Configuration Tool";
+        categories = [
+          "Settings"
+          "HardwareSettings"
+        ];
+      })
+    ];
 
     meta.mainProgram = "yeetmouse";
   }).overrideAttrs (prev: overrides);

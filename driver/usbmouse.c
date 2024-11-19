@@ -170,6 +170,13 @@ static bool usb_mouse_match(struct input_handler *handler, struct input_dev *dev
 int usb_mouse_register_handle_head(struct input_handle *handle) {
   struct input_handler *handler = handle->handler;
   struct input_dev *dev = handle->dev;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 7))
+  /* In 6.11.7 an additional handler pointer was added: https://github.com/torvalds/linux/commit/071b24b54d2d05fbf39ddbb27dee08abd1d713f3 */
+  if (handler->events)
+    handle->handle_events = handler->events;
+#endif
+
   int error = mutex_lock_interruptible(&dev->mutex);
   if (error)
     return error;

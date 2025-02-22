@@ -7,7 +7,9 @@
 
   outputs = inputs @ { self, nixpkgs }: let
     inherit (inputs.nixpkgs) lib;
-    packageInputs = { inherit (self) shortRev; };
+    packageInputs = {
+      shortRev = if (self ? shortRev) then self.shortRev else self.dirtyRev;
+    };
     eachSystem = lib.genAttrs ["aarch64-linux" "x86_64-linux"];
     overlay = final: prev: {
       yeetmouse = import ./package.nix packageInputs final;

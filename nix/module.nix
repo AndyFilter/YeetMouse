@@ -70,7 +70,7 @@ let
       };
       ScrollsPerTick = mkOption {
         type = types.int;
-        default = true;
+        default = 1;
         description = "Amount of lines to scroll per scroll-wheel tick.";
       };
     };

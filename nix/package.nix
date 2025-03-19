@@ -31,9 +31,11 @@ let
       "-C"
       "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "M=$(sourceRoot)/driver"
+      "O=$(mktemp -d)"
     ];
 
     preBuild = ''
+      export TMPDIR=$(mktemp -d)
       cp $sourceRoot/driver/config.sample.h $sourceRoot/driver/config.h
     '';
 

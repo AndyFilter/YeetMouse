@@ -80,6 +80,11 @@ let
             default = 0.2;
             description = "Power acceleration exponent";
           };
+          outputOffset = mkOption {
+            type = floatRange 0.0 5.0;
+            default = 1.0;
+            description = "Speed output offset";
+          };
         };
       };
       apply = params: [
@@ -94,6 +99,10 @@ let
         {
           value = toString params.exponent;
           param = "Exponent";
+        }
+        {
+          value = toString params.outputOffset;
+          param = "Midpoint";
         }
       ];
     };

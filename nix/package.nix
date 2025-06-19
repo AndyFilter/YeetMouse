@@ -50,8 +50,12 @@ let
       make "-j$NIX_BUILD_CORES" -C $sourceRoot/gui "M=$sourceRoot/gui" "LIBS=-lglfw -lGL"
     '';
 
-    postInstall = ''
+    postInstall = let
+      PATH = [ pkgs.zenity ];
+    in /*sh*/''
       install -Dm755 $sourceRoot/gui/YeetMouseGui $out/bin/yeetmouse
+      wrapProgram $out/bin/yeetmouse \
+        --prefix PATH : ${lib.makeBinPath PATH}
     '';
 
     buildFlags = [ "modules" ];

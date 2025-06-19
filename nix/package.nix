@@ -61,11 +61,13 @@ let
     desktopItems = [
       (makeDesktopItem {
         name = pname;
-        exec = writeShellScript "yeetmouse.sh" /*bash*/ ''
+        exec = let
+          xhost = "${pkgs.xorg.xhost}/bin/xhost";
+        in writeShellScript "yeetmouse.sh" /*bash*/ ''
           if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-            xhost +SI:localuser:root
+            ${xhost} +SI:localuser:root
             pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
-            xhost -SI:localuser:root
+            ${xhost} -SI:localuser:root
           else
             pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
           fi

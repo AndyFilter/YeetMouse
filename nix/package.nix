@@ -50,8 +50,12 @@ let
       make "-j$NIX_BUILD_CORES" -C $sourceRoot/gui "M=$sourceRoot/gui" "LIBS=-lglfw -lGL"
     '';
 
-    postInstall = ''
+    postInstall = let
+      PATH = [ pkgs.zenity ];
+    in /*sh*/''
       install -Dm755 $sourceRoot/gui/YeetMouseGui $out/bin/yeetmouse
+      wrapProgram $out/bin/yeetmouse \
+        --prefix PATH : ${lib.makeBinPath PATH}
     '';
 
     buildFlags = [ "modules" ];
@@ -61,11 +65,13 @@ let
     desktopItems = [
       (makeDesktopItem {
         name = pname;
-        exec = writeShellScript "yeetmouse.sh" /*bash*/ ''
+        exec = let
+          xhost = "${pkgs.xorg.xhost}/bin/xhost";
+        in writeShellScript "yeetmouse.sh" /*bash*/ ''
           if [ "$XDG_SESSION_TYPE" = "wayland" ]; then
-            xhost +SI:localuser:root
+            ${xhost} +SI:localuser:root
             pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
-            xhost -SI:localuser:root
+            ${xhost} -SI:localuser:root
           else
             pkexec env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" "${pname}"
           fi

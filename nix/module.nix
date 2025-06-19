@@ -243,6 +243,7 @@ let
         Acceleration mode following a custom curve.
         The curve is specified using individual `[x, y]` points.
         See [RawAccel: Lookup Table](https://github.com/RawAccelOfficial/rawaccel/blob/5b39bb6/doc/Guide.md#look-up-table)
+        The acceleration mode for custom curves is represented as a LUT as well. Use the Yeetmouse GUI to convert bezier curves to a LUT.
       '';
       type = types.submodule {
         options = {

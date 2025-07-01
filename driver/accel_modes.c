@@ -1,6 +1,8 @@
 #include "accel_modes.h"
 
 #include "../shared_definitions.h"
+#include "FixedMath/Fixed64.h"
+#include "FixedMath/FixedUtil.h"
 
 #define EXP_ARG_THRESHOLD 16ll
 
@@ -150,6 +152,33 @@ FP_LONG accel_jump(FP_LONG speed) {
     else {
         speed = FP64_Add(FP64_DivPrecise(modesConst.accel_sub_1, FP64_Add(FP64_1, D)), FP64_1);
     }
+    return speed;
+}
+
+FP_LONG accel_natural(FP_LONG speed) {
+
+    if (speed <= g_Midpoint) {
+	speed = FP64_1;
+    } else {
+	FP_LONG limit = FP64_Sub(g_Exponent, FP64_1);
+        FP_LONG auxiliar_accel =
+            FP64_DivPrecise(g_Acceleration, FP64_Abs(limit));
+        FP_LONG n_offset_x = FP64_Sub(g_Midpoint, speed);
+        FP_LONG decay = FP64_Exp(FP64_Mul(auxiliar_accel, n_offset_x));
+
+        if (g_UseSmoothing) {
+            FP_LONG auxiliar_constant = FP64_DivPrecise(-limit, auxiliar_accel);
+            FP_LONG decay_auxiliaraccel =
+                FP64_DivPrecise(decay, auxiliar_accel);
+            FP_LONG numerator = FP64_Add(
+                FP64_Mul(limit, FP64_Sub(decay_auxiliaraccel, n_offset_x)),
+					 auxiliar_constant);
+            speed = FP64_Add(FP64_DivPrecise(numerator, speed), FP64_1);
+	} else {
+	    speed = FP64_Add(FP64_Mul(limit, (FP64_Sub(FP64_1, FP64_DivPrecise(FP64_Sub(g_Midpoint, FP64_Mul(decay, n_offset_x)), speed)))), FP64_1);
+	}
+    }
+
     return speed;
 }
 

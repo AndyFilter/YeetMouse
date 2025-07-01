@@ -137,6 +137,10 @@ FP_LONG TestManager::AccelMotivity(float x) {
     return accel_motivity(FP64_FromFloat(x));
 }
 
+FP_LONG TestManager::AccelNatural(float x) {
+    return accel_natural(FP64_FromFloat(x));
+}
+
 FP_LONG TestManager::AccelJump(float x) {
     return accel_jump(FP64_FromFloat(x));
 }

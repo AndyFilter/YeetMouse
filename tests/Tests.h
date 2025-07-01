@@ -34,6 +34,7 @@ public:
     static bool TestAccelPower(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelClassic(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelMotivity(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
+    static bool TestAccelNatural(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelJump(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelLUT(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
 

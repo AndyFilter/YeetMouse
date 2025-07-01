@@ -51,6 +51,8 @@ inline std::string AccelMode2String(AccelMode mode) {
             return "Classic";
         case AccelMode_Motivity:
             return "Motivity";
+        case AccelMode_Natural:
+            return "Natural";
         case AccelMode_Jump:
             return "Jump";
         case AccelMode_Lut:
@@ -72,6 +74,8 @@ inline std::string AccelMode2String_CAPS(AccelMode mode) {
             return "CLASSIC";
         case AccelMode_Motivity:
             return "MOTIVITY";
+        case AccelMode_Natural:
+        return "NATURAL";
         case AccelMode_Jump:
             return "JUMP";
         case AccelMode_Lut:
@@ -95,7 +99,9 @@ inline AccelMode AccelMode_From_String(std::string mode_text) {
     else if (mode_text == "classic")
         return AccelMode_Classic;
     else if (mode_text == "motivity")
-        return AccelMode_Motivity;
+	return AccelMode_Motivity;
+    else if (mode_text == "natural")
+	return AccelMode_Natural;
     else if (mode_text == "jump")
         return AccelMode_Jump;
     else

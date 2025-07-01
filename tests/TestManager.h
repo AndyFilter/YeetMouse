@@ -33,6 +33,7 @@ class TestManager {
     static FP_LONG AccelPower(float x); // Parameter values set manually!
     static FP_LONG AccelClassic(float x); // Parameter values set manually!
     static FP_LONG AccelMotivity(float x); // Parameter values set manually!
+    static FP_LONG AccelNatural(float x); // Parameter values set manually!
     static FP_LONG AccelJump(float x); // Parameter values set manually!
     static FP_LONG AccelLUT(float x); // Parameter values set manually!
 

@@ -166,11 +166,70 @@ let
           param = "Acceleration";
         }
         {
+          value = toString params.exponent;
+          param = "Limit";
+        }
+        {
           value = toString params.start;
           param = "Midpoint";
         }
       ];
     };
+
+    natural = mkOption {
+      description = ''
+        Acceleration mode Natural features a concave curve which starts at 1 and approaches some maximum sensitivity. The sensitivity version of this curve can be found in the game Diabotical.
+        See [RawAccel: Motivity](https://github.com/RawAccelOfficial/rawaccel/blob/d179e22/doc/Guide.md#natural)
+      '';
+      type = types.submodule {
+        options = {
+          acceleration = mkOption {
+            type = floatRange 0.001 5.0;
+            default = 0.15;
+            description = "Natural acceleration multiplier";
+          };
+          midpoint = mkOption {
+            type = floatRange 0 50.0;
+            default = 0;
+            description = "Natural acceleration mid-point";
+          };
+          exponent = mkOption {
+            type = floatRange 0.001 8.0;
+            default = 2;
+            description = "Natural acceleration limit (smoothness of the applied output curve)";
+          };
+          useSmoothing = mkOption {
+            type = types.bool;
+            default = false;
+            description = "Enable Natural curve smoothing (Makes the curve smoother)";
+            apply = x: if x then "1" else "0";
+          };
+        };
+      };
+      apply = params: [
+        {
+          value = "5";
+          param = "AccelerationMode";
+        }
+        {
+          value = toString params.acceleration;
+          param = "Acceleration";
+        }
+        {
+          value = toString params.midpoint;
+          param = "Midpoint";
+        }
+        {
+          value = toString params.exponent;
+          param = "Exponent";
+        }
+        {
+          value = params.useSmoothing;
+          param = "UseSmoothing";
+        }
+      ];
+    };
+
 
     jump = mkOption {
       description = ''
@@ -205,7 +264,7 @@ let
       };
       apply = params: [
         {
-          value = "5";
+          value = "6";
           param = "AccelerationMode";
         }
         {
@@ -256,7 +315,7 @@ let
       };
       apply = params: [
         {
-          value = "6";
+          value = "7";
           param = "AccelerationMode";
         }
         {

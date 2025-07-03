@@ -3,6 +3,11 @@ project(YeetMouseTests)
 
 set(CMAKE_CXX_STANDARD 17)
 
+if (CMAKE_SYSTEM_PROCESSOR STREQUAL "ppc64le")
+    message(STATUS "Configuring for ppc64le architecture. Adding __ppc64le__ definition.")
+    add_compile_definitions(__ppc64le__)
+endif()
+
 file(GLOB driver_source "../driver/accel_modes.[c|h]")
 file(GLOB fixedpoint_source "../driver/FixedMath/*")
 

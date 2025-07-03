@@ -15,6 +15,9 @@ MODULEDIR?=/lib/modules/$(shell uname -r)/kernel/drivers/usb
 DKMS_NAME?=yeetmouse-driver
 DKMS_VER?=0.9.2
 
+# Detect architecture
+ARCH := $(shell uname -m)
+
 .PHONY: driver
 .PHONY: GUI
 
@@ -33,6 +36,9 @@ GUI:
 driver:
 	@echo -e "\n::\033[32m Compiling yeetmouse kernel module\033[0m"
 	@echo "========================================"
+ifeq ($(ARCH),ppc64le)
+	@echo "PowerPC 64-bit Little Endian detected"
+endif
 	@cp -n $(DRIVERDIR)/config.sample.h $(DRIVERDIR)/config.h || true
 	$(MAKE) -C $(KERNELDIR) M=$(DRIVERDIR) modules
 

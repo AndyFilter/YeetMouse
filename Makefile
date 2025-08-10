@@ -75,6 +75,7 @@ setup_dkms:
 	install -m 644 -v driver/*.h $(DESTDIR)/usr/src/$(DKMS_NAME)-$(DKMS_VER)/driver/
 	install -m 644 -v driver/FixedMath/*.h $(DESTDIR)/usr/src/$(DKMS_NAME)-$(DKMS_VER)/driver/FixedMath/
 	install -m 644 -v shared_definitions.h $(DESTDIR)/usr/src/$(DKMS_NAME)-$(DKMS_VER)/
+	$(if $(shell grep "AccelMode_" "$(DRIVERDIR)/config.h"),,@echo "\033[31mWARNING! Old config version detected, acceleration mode might be wrong!\033[0m")
 	@rm -fv $(DESTDIR)/usr/src/$(DKMS_NAME)-$(DKMS_VER)/driver/*.mod.c
 
 remove_dkms:

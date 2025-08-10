@@ -54,13 +54,14 @@ PARAM(AccelerationMode, ACCELERATION_MODE,  "Sets the algorithm to be used for a
 PARAM_F(InputCap,       INPUT_CAP,          "Limit the maximum pointer speed before applying acceleration.");
 PARAM_F(Sensitivity,    SENSITIVITY,        "Mouse base sensitivity, or X axis sensitivity if the anisotropy is on."); // Sensitivity for X axis only if sens != sens_y (anisotropy is on), otherwise sensitivity for both axes
 PARAM_F(SensitivityY,   SENSITIVITY_Y,      "Mouse base sensitivity on the Y axis."); // Used only when anisotropy is on
-PARAM_F(Acceleration,   ACCELERATION,       "Mouse acceleration sensitivity.");
 PARAM_F(OutputCap,      OUTPUT_CAP,         "Cap maximum sensitivity.");
 PARAM_F(Offset,         OFFSET,             "Mouse acceleration shift.");
+PARAM_F(PreScale,       PRESCALE,           "Parameter to adjust for the DPI");
 
+PARAM_F(Acceleration,   ACCELERATION,       "Mouse acceleration sensitivity.");
 PARAM_F(Exponent,       EXPONENT,           "Exponent for algorithms that use it");
 PARAM_F(Midpoint,       MIDPOINT,           "Midpoint for sigmoid function, Output Offset for Power mode");
-PARAM_F(PreScale,       PRESCALE,           "Parameter to adjust for the DPI");
+PARAM_F(Motivity,       MOTIVITY,           "Expresses how much change will occur for the Motivity (and Synchronous) function");
 PARAM  (UseSmoothing,   USE_SMOOTHING,      "Whether to smooth out functions (doesn't apply to all)");
 //PARAM_F(ScrollsPerTick, SCROLLS_PER_TICK,   "Amount of lines to scroll per scroll-wheel tick.");
 
@@ -121,6 +122,7 @@ INLINE void update_params(ktime_t now)
     PARAM_UPDATE(Exponent);
     PARAM_UPDATE(Midpoint);
     PARAM_UPDATE(PreScale);
+    PARAM_UPDATE(Motivity);
     PARAM_UPDATE(RotationAngle);
     PARAM_UPDATE(AngleSnap_Threshold);
     PARAM_UPDATE(AngleSnap_Angle);
@@ -249,6 +251,9 @@ int accelerate(int *x, int *y, int *wheel)
                 break;
             case AccelMode_Motivity:
                 speed = accel_motivity(speed);
+                break;
+            case AccelMode_Synchronous:
+                speed = accel_synchronous(speed);
                 break;
             case AccelMode_Natural:
                 speed = accel_natural(speed);

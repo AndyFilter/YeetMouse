@@ -4,7 +4,7 @@
 #include "driver/accel_modes.h"
 
 // "Private" values only visible to the accel_modes
-FP_LONG g_Acceleration = 0, g_Exponent = 0, g_Midpoint = 0, g_RotationAngle = 0, g_AngleSnap_Angle = 0, g_AngleSnap_Threshold = 0, g_LutData_x[256], g_LutData_y[256];
+FP_LONG g_Acceleration = 0, g_Exponent = 0, g_Midpoint = 0, g_Motivity = 0, g_RotationAngle = 0, g_AngleSnap_Angle = 0, g_AngleSnap_Threshold = 0, g_LutData_x[256], g_LutData_y[256];
 char g_AccelerationMode = 0, g_UseSmoothing = 0;
 unsigned long g_LutSize = 0;
 ModesConstants modesConst;
@@ -63,6 +63,16 @@ FP_LONG TestManager::AccelMotivity(FP_LONG x, FP_LONG acceleration, FP_LONG expo
     return accel_motivity(x);
 }
 
+FP_LONG TestManager::AccelSynchronous(FP_LONG x, FP_LONG sync_speed, FP_LONG gamma, FP_LONG smoothness, FP_LONG motivity, bool gain) {
+    SetAcceleration(sync_speed);
+    SetExponent(gamma);
+    SetMidpoint(smoothness);
+    SetMotivity(motivity);
+    SetUseSmoothing(gain);
+    UpdateModesConstants();
+    return accel_motivity(x);
+}
+
 FP_LONG TestManager::AccelJump(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint, bool gain) {
     SetAcceleration(acceleration);
     SetExponent(exponent);
@@ -100,6 +110,11 @@ FP_LONG TestManager::AccelMotivity(float x, float acceleration, float exponent, 
     return AccelMotivity(FP64_FromFloat(x), FP64_FromFloat(acceleration), FP64_FromFloat(exponent), FP64_FromFloat(midpoint));
 }
 
+FP_LONG TestManager::AccelSynchronous(float x, float sync_speed, float gamma, float smoothness, float motivity, bool gain) {
+    return AccelSynchronous(FP64_FromFloat(x), FP64_FromFloat(sync_speed), FP64_FromFloat(gamma),
+        FP64_FromFloat(smoothness), FP64_FromFloat(motivity), gain);
+}
+
 FP_LONG TestManager::AccelJump(float x, float acceleration, float exponent, float midpoint, bool gain) {
     return AccelJump(FP64_FromFloat(x), FP64_FromFloat(acceleration), FP64_FromFloat(exponent), FP64_FromFloat(midpoint), gain);
 }
@@ -135,6 +150,10 @@ FP_LONG TestManager::AccelClassic(float x) {
 
 FP_LONG TestManager::AccelMotivity(float x) {
     return accel_motivity(FP64_FromFloat(x));
+}
+
+FP_LONG TestManager::AccelSynchronous(float x) {
+    return accel_synchronous(FP64_FromFloat(x));
 }
 
 FP_LONG TestManager::AccelNatural(float x) {
@@ -205,6 +224,11 @@ void TestManager::SetMidpoint(FP_LONG midpoint) {
     function.params->midpoint = FP64_ToFloat(g_Midpoint);
 }
 
+void TestManager::SetMotivity(FP_LONG motivity) {
+    g_Motivity = motivity;
+    function.params->motivity = FP64_ToFloat(g_Motivity);
+}
+
 void TestManager::SetRotationAngle(FP_LONG rotationAngle) {
     g_RotationAngle = rotationAngle;
     function.params->rotation = FP64_ToFloat(g_RotationAngle);
@@ -264,6 +288,10 @@ void TestManager::SetExponent(float exponent) {
 
 void TestManager::SetMidpoint(float midpoint) {
     SetMidpoint(FP64_FromFloat(midpoint));
+}
+
+void TestManager::SetMotivity(float motivity) {
+    SetMotivity(FP64_FromFloat(motivity));
 }
 
 void TestManager::SetRotationAngle(float rotationAngle) {

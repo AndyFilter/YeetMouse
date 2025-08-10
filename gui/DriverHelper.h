@@ -40,6 +40,8 @@ namespace DriverHelper {
 } // DriverHelper
 
 inline std::string AccelMode2String(AccelMode mode) {
+    static_assert(AccelMode_Count == 10);
+
     switch (mode) {
         case AccelMode_Current:
             return "Current";
@@ -51,6 +53,8 @@ inline std::string AccelMode2String(AccelMode mode) {
             return "Classic";
         case AccelMode_Motivity:
             return "Motivity";
+        case AccelMode_Synchronous:
+            return "Synchronous";
         case AccelMode_Natural:
             return "Natural";
         case AccelMode_Jump:
@@ -63,6 +67,8 @@ inline std::string AccelMode2String(AccelMode mode) {
 }
 
 inline std::string AccelMode2EnumString(AccelMode mode) {
+    static_assert(AccelMode_Count == 10);
+
     switch (mode) {
         case AccelMode_Current:
             return "AccelMode_Current";
@@ -74,6 +80,8 @@ inline std::string AccelMode2EnumString(AccelMode mode) {
             return "AccelMode_Classic";
         case AccelMode_Motivity:
             return "AccelMode_Motivity";
+        case AccelMode_Synchronous:
+            return "AccelMode_Synchronous";
         case AccelMode_Natural:
             return "AccelMode_Natural";
         case AccelMode_Jump:
@@ -86,6 +94,8 @@ inline std::string AccelMode2EnumString(AccelMode mode) {
 }
 
 inline std::string AccelMode2String_CAPS(AccelMode mode) {
+    static_assert(AccelMode_Count == 10);
+
     switch (mode) {
         case AccelMode_Current:
             return "CURRENT";
@@ -99,6 +109,8 @@ inline std::string AccelMode2String_CAPS(AccelMode mode) {
             return "MOTIVITY";
         case AccelMode_Natural:
             return "NATURAL";
+        case AccelMode_Synchronous:
+            return "SYNCHRONOUS";
         case AccelMode_Jump:
             return "JUMP";
         case AccelMode_Lut:
@@ -109,45 +121,58 @@ inline std::string AccelMode2String_CAPS(AccelMode mode) {
 }
 
 inline AccelMode AccelMode_From_String(std::string mode_text) {
+    static_assert(AccelMode_Count == 10);
+
     // Bring text to lowercase
     std::transform(mode_text.begin(), mode_text.end(), mode_text.begin(),
                    [](unsigned char c){ return std::tolower(c); });
 
-    if(mode_text == "current")
+    if (mode_text == "current")
         return AccelMode_Current;
-    else if (mode_text == "linear")
+    if (mode_text == "linear")
         return AccelMode_Linear;
-    else if (mode_text == "power")
+    if (mode_text == "power")
         return AccelMode_Power;
-    else if (mode_text == "classic")
+    if (mode_text == "classic")
         return AccelMode_Classic;
-    else if (mode_text == "motivity")
-	    return AccelMode_Motivity;
-    else if (mode_text == "natural")
-	    return AccelMode_Natural;
-    else if (mode_text == "jump")
+    if (mode_text == "motivity")
+        return AccelMode_Motivity;
+    if (mode_text == "synchronous")
+        return AccelMode_Synchronous;
+    if (mode_text == "natural")
+        return AccelMode_Natural;
+    if (mode_text == "jump")
         return AccelMode_Jump;
-    else
-        return AccelMode_Current;
+    if (mode_text == "lut")
+        return AccelMode_Lut;
+    if (mode_text == "custom curve")
+        return AccelMode_CustomCurve;
+    return AccelMode_Current;
 }
 
 inline AccelMode AccelMode_From_EnumString(const std::string& mode_text) {
-    if(mode_text == "AccelMode_Current")
+    static_assert(AccelMode_Count == 10);
+
+    if (mode_text == "AccelMode_Current")
         return AccelMode_Current;
-    else if (mode_text == "AccelMode_Linear")
+    if (mode_text == "AccelMode_Linear")
         return AccelMode_Linear;
-    else if (mode_text == "AccelMode_Power")
+    if (mode_text == "AccelMode_Power")
         return AccelMode_Power;
-    else if (mode_text == "AccelMode_Classic")
+    if (mode_text == "AccelMode_Classic")
         return AccelMode_Classic;
-    else if (mode_text == "AccelMode_Motivity")
+    if (mode_text == "AccelMode_Motivity")
         return AccelMode_Motivity;
-    else if (mode_text == "AccelMode_Natural")
+    if (mode_text == "AccelMode_Synchronous")
+        return AccelMode_Synchronous;
+    if (mode_text == "AccelMode_Natural")
         return AccelMode_Natural;
-    else if (mode_text == "AccelMode_Jump")
+    if (mode_text == "AccelMode_Jump")
         return AccelMode_Jump;
-    else
-        return AccelMode_Current;
+    if (mode_text == "AccelMode_Lut")
+        return AccelMode_Lut;
+    if (mode_text == "AccelMode_CustomCurve")
+        return AccelMode_CustomCurve;
 }
 
 struct Parameters {
@@ -156,10 +181,11 @@ struct Parameters {
     float outCap = 0.f;
     float inCap = 0.f;
     float offset = 0.0f;
+    float preScale = 1.0f;
     float accel = 2.0f;
     float exponent = 0.4f;
     float midpoint = 5.0f;
-    float preScale = 1.0f;
+    float motivity = 1.5f;
     //float scrollAccel = 1.0f;
     AccelMode accelMode = AccelMode_Current;
     bool useSmoothing = true; // true/false

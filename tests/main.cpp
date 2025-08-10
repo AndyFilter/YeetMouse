@@ -24,5 +24,7 @@ int main() {
         printf(RED"%i %s failed!\n", bad_sum, (bad_sum == 1) ? "test" : "tests");
     }
 
+    // Tests::TestFixedPointArithmetic();
+
     return 0;
 }

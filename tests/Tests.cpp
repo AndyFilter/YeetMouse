@@ -196,6 +196,96 @@ bool Tests::TestAccelMotivity(float range_min, float range_max) {
     return supervisor.GetResult();
 }
 
+bool Tests::TestAccelSynchronous(float range_min, float range_max) {
+    TestSupervisor supervisor{"Synchronous Mode"};
+
+    try {
+        supervisor.NextTest();
+
+        /* Parameter mapping (Rawaccel -> YeetMouse):
+         * smooth -> midpoint
+         * sync_speed -> accel
+         * gamma -> exponent
+        */
+        TestManager::SetAccelMode(AccelMode_Synchronous);
+        TestManager::SetExponent(20.f);
+        TestManager::SetMidpoint(4.f);
+        TestManager::SetMotivity(1.9f);
+        TestManager::SetAcceleration(6.f);
+        TestManager::SetUseSmoothing(false);
+        TestManager::UpdateModesConstants();
+
+        for (int i = 1; i <= BASIC_TEST_STEPS; i++) {
+            float x = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelSynchronous(x);
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(x));
+
+            //printf("x: %f, res: %f, float: %f\n", x, FP64_ToFloat(res), TestManager::EvalFloatFunc(x));
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Synchronous);
+        TestManager::SetExponent(2.f);
+        TestManager::SetMidpoint(0.5f);
+        TestManager::SetMotivity(1.75f);
+        TestManager::SetAcceleration(5.f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        for (int i = 1; i <= BASIC_TEST_STEPS; i++) {
+            float x = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelSynchronous(x);
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(x));
+
+            //printf("x: %f, res: %f, float: %f\n", x, FP64_ToFloat(res), TestManager::EvalFloatFunc(x));
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Synchronous);
+        TestManager::SetExponent(20.f);
+        TestManager::SetMidpoint(4.f);
+        TestManager::SetMotivity(1.9f);
+        TestManager::SetAcceleration(6.f);
+        TestManager::SetUseSmoothing(false);
+        TestManager::UpdateModesConstants();
+
+        for (int i = 1; i <= BASIC_TEST_STEPS; i++) {
+            float x = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelSynchronous(x);
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(x));
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Synchronous);
+        TestManager::SetExponent(20.f);
+        TestManager::SetMidpoint(4.f);
+        TestManager::SetMotivity(1.f);
+        TestManager::SetAcceleration(6.f);
+        TestManager::SetUseSmoothing(false);
+        TestManager::UpdateModesConstants();
+
+        if (TestManager::ValidateConstants()) {
+            fprintf(stderr, "Valid constants (Should be invalid)\n");
+            supervisor.result = false;
+        }
+    }
+    catch (std::exception &ex) {
+        fprintf(stderr, "Exception: %s, in Synchronous mode\n", ex.what());
+        supervisor.result = false;
+    }
+
+    return supervisor.GetResult();
+}
+
 bool Tests::TestAccelNatural(float range_min, float range_max) {
     TestSupervisor supervisor{"Natural Mode"};
 
@@ -445,6 +535,8 @@ bool Tests::TestAccelLUT(float range_min, float range_max) {
 }
 
 bool Tests::TestAccelMode(AccelMode mode, float range_min, float range_max) {
+    static_assert(AccelMode_Count == 10);
+
     switch (mode) {
         case AccelMode_Linear:
             return TestAccelLinear(range_min, range_max);
@@ -454,6 +546,8 @@ bool Tests::TestAccelMode(AccelMode mode, float range_min, float range_max) {
             return TestAccelClassic(range_min, range_max);
         case AccelMode_Motivity:
             return TestAccelMotivity(range_min, range_max);
+        case AccelMode_Synchronous:
+            return TestAccelSynchronous(range_min, range_max);
         case AccelMode_Natural:
             return TestAccelNatural(range_min, range_max);
         case AccelMode_Jump:
@@ -477,6 +571,56 @@ std::array<bool, AccelMode_Count> Tests::TestAllBasic(float range_min, float ran
     }
 
     return results;
+}
+
+bool Tests::TestFixedPointArithmetic() {
+    TestSupervisor supervisor{"Arithmetic Test"};
+
+    try {
+        supervisor.NextTest();
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float x = -30 + static_cast<float>(i) * 60 / BASIC_TEST_STEPS; // Range -10, 10
+            auto val = FP64_Tanh(FP64_FromFloat(x));
+
+            supervisor.result &= IsCloseEnough(val, std::tanh(x), 1e-4);
+
+            //printf("%f, %f,%f,%f\n", x, FP64_ToFloat(val), std::tanh(x), FP64_ToFloat(val) - std::tanh(x));
+        }
+
+        supervisor.NextTest();
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float x = -375 + static_cast<float>(i) * 750 / BASIC_TEST_STEPS;
+
+            auto val = FP64_Ilogb(FP64_FromFloat(x));
+
+            supervisor.result &= IsCloseEnough(FP64_FromInt(val), std::ilogb(x), 1e-1);
+
+            //printf("%f, %i,%i,%i\n", x, val, std::ilogb(x), val - std::ilogb(x));
+        }
+
+        supervisor.NextTest();
+
+        for (int i = 0; i < BASIC_TEST_STEPS_REDUCED; i++) {
+            float x1 = -1000 + static_cast<float>(i) * 2000 / BASIC_TEST_STEPS_REDUCED;
+            for (int j = 0; j < 20; j++) {
+                int x2 = -10 + j * 20 / 20;
+                auto val = FP64_Scalbn(FP64_FromFloat(x1), x2);
+
+                //supervisor.result &= IsAccelValueGood(val);
+                supervisor.result &= IsCloseEnough(val, std::scalbln(x1, x2), 1e-4);
+
+                //printf("(%f, %i), %f,%f,%f\n", x1, x2, FP64_ToFloat(val), std::scalbln(x1, x2), FP64_ToFloat(val) - std::scalbln(x1, x2));
+            }
+        }
+    }
+    catch (std::exception &ex) {
+        fprintf(stderr, "Exception: %s during arithmetic\n", ex.what());
+        supervisor.result = false;
+    }
+
+    return supervisor.GetResult();
 }
 
 void Tests::TestSupervisor::NextTest() {

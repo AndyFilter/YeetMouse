@@ -25,7 +25,8 @@
 
 AccelMode selected_mode = AccelMode_Linear;
 
-const char *AccelModes[AccelMode_Count] = {"Current", "Linear", "Power", "Classic", "Motivity", "Natural", "Jump", "Look Up Table", "Custom Curve"};
+const char *AccelModes[] = {"Current", "Linear", "Power", "Classic", "Motivity", "Synchronous", "Natural", "Jump", "Look Up Table", "Custom Curve"};
+static_assert(sizeof(AccelModes) / sizeof(char*) == AccelMode_Count);
 #define NUM_MODES AccelMode_Count //(sizeof(AccelModes) / sizeof(char *))
 
 Parameters params[NUM_MODES]; // Driver parameters for each mode
@@ -246,6 +247,28 @@ int OnGui() {
 #endif
                 break;
             }
+            case AccelMode_Synchronous:
+            {
+#ifdef USE_INPUT_DRAG
+                change |= ImGui::DragFloat("##MidPoint_Param", &params[selected_mode].exponent, 0.01, 0, 20, "Gamma %0.2f");
+                change |= ImGui::DragFloat("##Exp_Param", &params[selected_mode].midpoint, 0.05, 0.1, 20, "Smoothness %0.2f", ImGuiSliderFlags_Logarithmic);
+                change |= ImGui::DragFloat("##Motivity_Param", &params[selected_mode].motivity, 0.01, 1, 10, "Motivity %0.2f");
+                change |= ImGui::DragFloat("##Accel_Param", &params[selected_mode].accel, 0.05, 0.01, 20, "SyncSpeed %0.2f");
+#else
+                change |= ImGui::SliderFloat("##MidPoint_Param", &params[selected_mode].exponent, 0.1, 20,
+                                             "Gamma %0.2f");
+                change |= ImGui::SliderFloat("##Exp_Param", &params[selected_mode].midpoint, 0.1, 20,
+                                             "Smoothness %0.2f", ImGuiSliderFlags_Logarithmic);
+                change |= ImGui::SliderFloat("##Motivity_Param", &params[selected_mode].motivity, 1, 10,
+                                             "Motivity %0.2f");
+                change |= ImGui::SliderFloat("##Accel_Param", &params[selected_mode].accel, 0.01, 10,
+                                             "SyncSpeed %0.2f");
+#endif
+                change |= ImGui::Checkbox("##Smoothing_Param", &params[selected_mode].useSmoothing);
+                ImGui::SameLine();
+                ImGui::Text("Use Smoothing");
+                break;
+            }
             case AccelMode_Natural: // Natural
             {
 #ifdef USE_INPUT_DRAG
@@ -267,7 +290,7 @@ int OnGui() {
                 ImGui::SameLine();
                 ImGui::Text("Use Smoothing");
                 break;
-	    }
+	        }
             case AccelMode_Jump: // Jump
             {
 #ifdef USE_INPUT_DRAG
@@ -950,6 +973,7 @@ int main() {
         DriverHelper::GetParameterF("Acceleration", start_params.accel);
         DriverHelper::GetParameterF("Exponent", start_params.exponent);
         DriverHelper::GetParameterF("Midpoint", start_params.midpoint);
+        DriverHelper::GetParameterF("Motivity", start_params.motivity);
         DriverHelper::GetParameterF("PreScale", start_params.preScale);
         DriverHelper::GetParameterI("AccelerationMode", reinterpret_cast<int &>(start_params.accelMode));
         DriverHelper::GetParameterB("UseSmoothing", start_params.useSmoothing);

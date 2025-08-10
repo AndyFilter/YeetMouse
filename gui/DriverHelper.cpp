@@ -340,6 +340,7 @@ bool Parameters::SaveAll() {
     res &= SetParameterTy("Acceleration", accel);
     res &= SetParameterTy("Exponent", exponent);
     res &= SetParameterTy("Midpoint", midpoint);
+    res &= SetParameterTy("Motivity", motivity);
     res &= SetParameterTy("PreScale", preScale);
     res &= SetParameterTy("UseSmoothing", useSmoothing);
 

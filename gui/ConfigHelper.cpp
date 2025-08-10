@@ -46,22 +46,6 @@ char* SaveFile() {
 
 namespace ConfigHelper {
 
-    /*
-     *  float sens = 1.0f;
-        float outCap = 0.f;
-        float inCap = 0.f;
-        float offset = 0.0f;
-        float accel = 2.0f;
-        float exponent = 0.4f;
-        float midpoint = 5.0f;
-        float preScale = 1.0f;
-        AccelMode accelMode = AccelMode_Current;
-        bool useSmoothing = true; // true/false
-        float rotation = 0; // Stored in degrees, converted to radians when writing out
-        double LUT_data_x[MAX_LUT_ARRAY_SIZE];
-        double LUT_data_y[MAX_LUT_ARRAY_SIZE];
-        int LUT_size = 0;
-     */
     std::string ExportPlainText(Parameters params, bool save_to_file) {
         std::stringstream res_ss;
 
@@ -75,6 +59,7 @@ namespace ConfigHelper {
             res_ss << "accel=" << params.accel << std::endl;
             res_ss << "exponent=" << params.exponent << std::endl;
             res_ss << "midpoint=" << params.midpoint << std::endl;
+            res_ss << "motivity=" << params.motivity << std::endl;
             res_ss << "preScale=" << params.preScale << std::endl;
             res_ss << "accelMode=" << AccelMode2EnumString(params.accelMode) << std::endl;
             res_ss << "useSmoothing=" << params.useSmoothing << std::endl;
@@ -122,6 +107,7 @@ namespace ConfigHelper {
             res_ss << "#define ACCELERATION " << params.accel << std::endl;
             res_ss << "#define EXPONENT " << params.exponent << std::endl;
             res_ss << "#define MIDPOINT " << params.midpoint << std::endl;
+            res_ss << "#define MOTIVITY " << params.motivity << std::endl;
             res_ss << "#define PRESCALE " << params.preScale << std::endl;
             res_ss << "#define ACCELERATION_MODE " << AccelMode2EnumString(params.accelMode) << std::endl;
             res_ss << "#define USE_SMOOTHING " << params.useSmoothing << std::endl;
@@ -158,7 +144,7 @@ namespace ConfigHelper {
 #define STRING_2_LOWERCASE(s) std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
 
     template <typename StreamType>
-    Parameters ImportAny(StreamType& stream, char *lut_data, bool is_config_h) {
+    Parameters ImportAny(StreamType& stream, char *lut_data, bool &is_config_h, bool* is_old_config = nullptr) {
         static_assert(std::is_base_of<std::istream, StreamType>::value, "StreamType must be derived from std::istream");
 
         Parameters params;
@@ -228,14 +214,22 @@ namespace ConfigHelper {
                 params.accel = val;
             else if(name == "exponent")
                 params.exponent = val;
-            else if(name == "midpoint" || name == "midpoint")
+            else if(name == "midpoint")
                 params.midpoint = val;
+            else if(name == "motivity")
+                params.motivity = val;
             else if(name == "prescale")
                 params.preScale = val;
             else if(name == "accelmode" || name == "acceleration_mode") {
-                if (!std::isnan(val)) // val + 1 below for backward compatibility
-                    params.accelMode = static_cast<AccelMode>(std::clamp((int)val + (val > 4 ? 1 : 0), 0, (int)AccelMode_Count-1));
+                if (!std::isnan(val)) {
+                    // val +2 below for backward compatibility
+                    if (is_old_config)
+                        *is_old_config = true;
+                    params.accelMode = static_cast<AccelMode>(std::clamp((int)val + (val > 4 ? 2 : 0), 0, (int)AccelMode_Count-1));
+                }
                 else {
+                    if (is_old_config)
+                        *is_old_config = false;
                     params.accelMode = AccelMode_From_EnumString(val_str);
                 }
             }
@@ -273,16 +267,34 @@ namespace ConfigHelper {
 
             is_config_h = filepath[file_name_len - 1] == 'h' && filepath[file_name_len - 2] == '.';
 
-            std::ifstream file(filepath);
-
-            delete[] filepath;
+            std::fstream file(filepath);
 
             if(!file.good())
                 return {};
 
-            params = ImportAny(file, lut_data, is_config_h);
+            bool is_old_config = false;
+            params = ImportAny(file, lut_data, is_config_h, &is_old_config);
+
+            file.close();
+
+            // Automatically re-export in the correct format
+            if(is_old_config) {
+                std::ofstream out_file(filepath);
+
+                if (out_file.is_open()) {
+                    if (is_config_h)
+                        out_file << ExportConfig(params, false);
+                    else
+                        out_file << ExportPlainText(params, false);
+
+                    out_file.close();
+                }
+            }
+
+            delete[] filepath;
         }
         catch (std::exception& ex) {
+            delete[] filepath;
             printf("Import error: %s\n", ex.what());
             return false;
         }
@@ -298,7 +310,16 @@ namespace ConfigHelper {
         try {
             std::stringstream sstream(clipboard);
 
-            params = ImportAny(sstream, lut_data, is_config_h);
+            bool is_old_config = false;
+            params = ImportAny(sstream, lut_data, is_config_h, &is_old_config);
+
+            // Automatically re-export in the correct format
+            if(is_old_config) {
+                if (is_config_h)
+                    ImGui::SetClipboardText(ExportConfig(params, false).c_str());
+                else
+                    ImGui::SetClipboardText(ExportPlainText(params, false).c_str());
+            }
         }
         catch (std::exception& ex) {
             printf("Import error: %s\n", ex.what());

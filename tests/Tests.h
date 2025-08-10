@@ -34,6 +34,7 @@ public:
     static bool TestAccelPower(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelClassic(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelMotivity(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
+    static bool TestAccelSynchronous(float range_min, float range_max);
     static bool TestAccelNatural(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelJump(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
     static bool TestAccelLUT(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
@@ -41,6 +42,7 @@ public:
     static bool TestAccelMode(AccelMode mode, float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
 
     static std::array<bool, AccelMode_Count> TestAllBasic(float range_min = 0, float range_max = BASIC_TEST_RANGE_MAX);
+    static bool TestFixedPointArithmetic();
 
 private:
     //static CachedFunction functions[AccelMode_Count];
@@ -52,7 +54,7 @@ private:
 
     public:
         explicit TestSupervisor(const char* test_name) : test_name(test_name) { };
-        bool GetResult() const { return _result; }
+        bool GetResult() const { return _result & result; }
 
         bool result = true;
 

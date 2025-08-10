@@ -12,6 +12,31 @@ void update_constants(void) {
     modesConst.accel_sub_1 = FP64_Sub(g_Acceleration, FP64_1);
     modesConst.exp_sub_1 = FP64_Sub(g_Exponent, FP64_1);
 
+    // Synchronous
+    if (g_AccelerationMode == AccelMode_Synchronous) {
+        if (g_Motivity <= FP64_1) {
+            printk("YeetMouse: Error: Acceleration mode 'Synchronous' is not supported for motivity 1.\n");
+            g_Acceleration = 0;
+            g_AccelerationMode = AccelMode_Current;
+        }
+        else {
+            modesConst.logMot = FP64_Log(g_Motivity);
+            modesConst.gammaConst = FP64_DivPrecise(g_Exponent, modesConst.logMot);
+            modesConst.logSync = FP64_Log(g_Acceleration);
+
+            // sharpness = (midpoint == 0) ? 16.0 : (0.5 / midpoint)
+            modesConst.sharpness = (g_Midpoint == 0)
+                ? FP64_FromInt(16)
+                : FP64_DivPrecise(FP64_0_5, g_Midpoint);
+
+            modesConst.sharpnessRecip = FP64_DivPrecise(FP64_1, modesConst.sharpness);
+            modesConst.useClamp = (modesConst.sharpness >= FP64_FromInt(16));
+
+            modesConst.minSens = FP64_DivPrecise(FP64_1, g_Motivity);
+            modesConst.maxSens = g_Motivity;
+        }
+    }
+
     // Natural
     if (g_AccelerationMode == AccelMode_Natural) {
         if (modesConst.exp_sub_1 == 0 || g_Exponent == FP64_1) {
@@ -110,6 +135,125 @@ void update_constants(void) {
     modesConst.is_init = 1;
 }
 
+#define SYNC_START (-3)
+#define SYNC_STOP (9)
+#define SYNC_NUM (8)
+#define SYNC_CAPACITY ((SYNC_STOP - SYNC_START) * SYNC_NUM + 1)
+
+// Local LUT storage for synchronous smoothing
+static struct {
+    FP_LONG x_start;                 // 2^SYNC_START
+    FP_LONG data[SYNC_CAPACITY];     // monotonic over x
+} s_sync_lut;
+
+static bool s_sync_lut_ready = false;
+
+static FP_LONG synchronous_legacy(FP_LONG x) {
+    if (modesConst.useClamp) {
+        FP_LONG L = FP64_Mul(modesConst.gammaConst, FP64_Sub(FP64_Log(x), modesConst.logSync));
+        if (L < FP64_1) return modesConst.minSens;
+        if (L > -FP64_1) return modesConst.maxSens;
+        return FP64_Exp(FP64_Mul(L, modesConst.logMot));
+    }
+
+    if (x == g_Acceleration) {
+        return FP64_1;
+    }
+
+    FP_LONG delta = FP64_Sub(FP64_Log(x), modesConst.logSync);
+    FP_LONG M = FP64_Mul(modesConst.gammaConst, FP64_Abs(delta));
+    FP_LONG T = FP64_Tanh(FP64_Pow(M, modesConst.sharpness));
+    FP_LONG exponent = FP64_Pow(T, modesConst.sharpnessRecip);
+    if (delta < 0) {
+        exponent = -exponent;
+    }
+    return FP64_Exp(FP64_Mul(exponent, modesConst.logMot));
+}
+
+// Helper: build LUT for smoothing/gain mode
+static bool synchronous_build_lut(void) {
+    // x_start = 2^SYNC_START
+    s_sync_lut.x_start = FP64_Scalbn(FP64_1, SYNC_START);
+
+    FP_LONG sum = 0;
+    FP_LONG prev_x   = 0;
+
+    int idx = 0;
+
+    // integrate sync_legacy in small steps using the same 2-point midpoint rule
+    for (int e = 0; e < (SYNC_STOP - SYNC_START); ++e) {
+        // expScale = 2^(e + SYNC_START) / SYNC_NUM
+        FP_LONG expScale = FP64_DivPrecise(FP64_Scalbn(FP64_1, e + SYNC_START), FP64_FromInt(SYNC_NUM));
+
+        for (int i = 0; i < SYNC_NUM; ++i) {
+            // b = (i + SYNC_NUM) * expScale   [sweeps from 2^(e+SYNC_START) .. 2^(e+1+SYNC_START)]
+            FP_LONG b = FP64_Mul(FP64_FromInt(i + SYNC_NUM), expScale);
+
+            // integrate from a -> b in two equal partitions
+            FP_LONG interval = FP64_DivPrecise(FP64_Sub(b, prev_x), FP64_FromInt(2));
+            for (int p = 1; p <= 2; ++p) {
+                // xi = a + p*interval
+                FP_LONG xi = FP64_Add(prev_x, FP64_Mul(FP64_FromInt(p), interval));
+                // sum += sync_legacy(xi) * interval
+                sum = FP64_Add(sum, FP64_Mul(synchronous_legacy(xi), interval));
+            }
+
+            prev_x = b;
+
+            s_sync_lut.data[idx++] = sum;
+        }
+    }
+
+    // final point at 2^SYNC_STOP
+    {
+        FP_LONG b = FP64_Scalbn(FP64_1, SYNC_STOP);
+        FP_LONG interval = FP64_DivPrecise(FP64_Sub(b, prev_x), FP64_FromInt(2));
+        for (int p = 1; p <= 2; ++p) {
+            FP_LONG xi = FP64_Add(prev_x, FP64_Mul(FP64_FromInt(p), interval));
+            sum = FP64_Add(sum, FP64_Mul(synchronous_legacy(xi), interval));
+        }
+        prev_x = b;
+
+        if (idx < SYNC_CAPACITY) {
+            s_sync_lut.data[idx] = sum; // last element
+        }
+    }
+
+    s_sync_lut_ready = true;
+    return true;
+}
+
+static FP_LONG synchronous_eval(FP_LONG x) {
+    // Find octave index: e = floor(log2(x)), clamped
+    int e = FP64_Ilogb(x);
+    if (e < SYNC_START) e = SYNC_START;
+    if (e > (SYNC_STOP - 1)) e = SYNC_STOP - 1;
+
+    // frac in [0,1): frac = x / 2^e - 1
+    FP_LONG frac = FP64_Sub(FP64_Scalbn(x, -e), FP64_1);
+
+    // idxF = SYNC_NUM * ((e - SYNC_START) + frac)
+    FP_LONG idxF = FP64_Mul(
+        FP64_FromInt(SYNC_NUM),
+        FP64_Add(FP64_FromInt(e - SYNC_START), frac)
+    );
+
+    // idx = floor(idxF), clamped to [0, SYNC_CAPACITY-2]
+    int idx = FP64_FloorToInt(idxF);
+    if (idx > (SYNC_CAPACITY - 2)) idx = SYNC_CAPACITY - 2;
+
+    if (idx >= 0) {
+        // t = fractional part in [0,1)
+        FP_LONG t = FP64_Sub(idxF, FP64_FromInt(idx));
+
+        FP_LONG y = FP64_Lerp(s_sync_lut.data[idx], s_sync_lut.data[idx + 1], t);
+
+        return FP64_DivPrecise(y, x);
+    }
+    FP_LONG y = s_sync_lut.data[0];
+    return FP64_DivPrecise(y, s_sync_lut.x_start);
+}
+
 FP_LONG accel_linear(FP_LONG speed) {
     speed = FP64_Mul(speed, g_Acceleration);
     return FP64_Add(FP64_1, speed);
@@ -152,6 +296,25 @@ FP_LONG accel_motivity(FP_LONG speed) {
     speed = FP64_Add(FP64_1, FP64_DivPrecise(modesConst.accel_sub_1, FP64_Add(FP64_1, exp)));
     return speed;
 }
+
+FP_LONG accel_synchronous(FP_LONG speed) {
+    // Defensive: ensure speed > 0 for log-domain math; you can clamp differently if your file already does.
+    if (speed <= 0) {
+        return FP64_1;
+    }
+
+    FP_LONG val;
+    if (g_UseSmoothing) {
+        if (!s_sync_lut_ready) { // This should be skipped 100% (except the first time) of the time by the branch predictor
+            synchronous_build_lut();
+        }
+        val = synchronous_eval(speed);
+    } else {
+        val = synchronous_legacy(speed);
+    }
+    return val;
+}
+
 
 FP_LONG accel_jump(FP_LONG speed) {
     // r = 2pi/(k*midpoint), where k is the smoothness factor (stored inside g_Exponent)

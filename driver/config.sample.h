@@ -12,6 +12,7 @@
 //#define POST_SCALE_Y 0.4f
 #define INPUT_CAP 0
 #define MIDPOINT 6
+#define MOTIVITY 1.5
 #define PRESCALE 1
 #define USE_SMOOTHING 1
 
@@ -27,7 +28,7 @@
 #define LUT_DATA 0
 
 
-#define ACCELERATION_MODE 1
+#define ACCELERATION_MODE AccelMode_Linear
 
 // For exponential curves.
 #define EXPONENT 0.2 //26214

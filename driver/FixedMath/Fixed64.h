@@ -1383,6 +1383,91 @@ static FP_LONG FP64_AtanFastest(FP_LONG x) {
     return FP64_Atan2Fastest(x, One);
 }
 
+static FP_LONG FP64_Tanh(FP_LONG x) {
+    // tanh(x) = 1 - 2 / (1 + exp(2x))
+    FP_LONG two_x = x << 1;
+    // This is safe for big x values because FP64_Exp 'clamps'
+    FP_LONG denom = FP64_Add(One, FP64_Exp(two_x));
+    return FP64_Sub(
+        One,
+        FP64_Mul(Two, FP64_DivPrecise(One, denom))
+    );
+}
+
+// Fixed-point ilogb: returns the unbiased base-2 exponent of the value.
+// Behavior on special cases:
+//  - x == 0: returns INT_MIN (analogous to FP_ILOGB0)
+static int FP64_Ilogb(FP_LONG x)
+{
+    if (x == 0) {
+        return INT_MIN; // ilogb(0)
+    }
+
+    // Absolute value as unsigned to handle INT64_MIN safely
+    FP_ULONG ux = (FP_ULONG)x;
+    if (x < 0) {
+        ux = (~ux) + 1; // two's-complement abs without overflow
+    }
+
+    // msb_index = floor(log2(ux))
+    // If FP64_Nlz is available (number of leading zeros), use it:
+    FP_INT lz = FP64_Nlz(ux);
+    FP_INT msb_index = (FP_INT)(63 - lz);
+
+    // Convert raw exponent to value exponent by subtracting fractional bits
+    return (int)(msb_index - FP64_Shift);
+}
+
+// Fixed-point scalbn: scales by 2^n with saturation.
+// For n >= 0: left shift with overflow saturation.
+// For n < 0: right shift with truncation toward zero.
+static FP_LONG FP64_Scalbn(FP_LONG x, int n)
+{
+    if (x == 0 || n == 0) {
+        return x;
+    }
+
+    if (n > 0) {
+        // Saturate if shifting would overflow
+        if (n >= 63) {
+            return (x > 0) ? MaxValue : MinValue;
+        }
+        // Check bounds before left shift
+        if (x > 0) {
+            FP_LONG limit = (FP_LONG)(MaxValue >> n);
+            if (x > limit) {
+                return MaxValue;
+            }
+        } else { // x < 0
+            // Right-shifting MinValue is implementation-defined for negatives; but
+            // it's safe to use arithmetic shift for the bound check.
+            FP_LONG limit = (FP_LONG)(MinValue >> n);
+            if (x < limit) {
+                return MinValue;
+            }
+        }
+        return (FP_LONG)(x << n);
+    } else {
+        // n < 0: truncation toward zero
+        int r = -n;
+        if (r >= 63) {
+            return 0;
+        }
+
+        // Implement right shift with truncation toward zero and without relying
+        // on implementation-defined right-shift of negatives.
+        if (x >= 0) {
+            return (FP_LONG)(x >> r);
+        } else {
+            FP_ULONG ux = (FP_ULONG)x;
+            ux = (~ux) + 1;               // abs as unsigned
+            FP_LONG q = (FP_LONG)(ux >> r);
+            return (FP_LONG)(-q);
+        }
+    }
+}
+
+
 static const uint64_t FP_64_scales[10] = {
         /* 18 decimals is enough for full 64bit fixed point precision */
         1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000

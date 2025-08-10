@@ -18,6 +18,7 @@ class TestManager {
     static FP_LONG AccelPower(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint);
     static FP_LONG AccelClassic(FP_LONG x, FP_LONG acceleration, FP_LONG exponent);
     static FP_LONG AccelMotivity(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint);
+    static FP_LONG AccelSynchronous(FP_LONG x, FP_LONG sync_speed, FP_LONG gamma, FP_LONG smoothness, FP_LONG motivity, bool gain);
     static FP_LONG AccelJump(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint, bool gain);
     static FP_LONG AccelLUT(FP_LONG x, FP_LONG values_x[], FP_LONG values_y[], unsigned long count);
     static FP_LONG AccelLUT(FP_LONG x);
@@ -26,6 +27,7 @@ class TestManager {
     static FP_LONG AccelPower(float x, float acceleration, float exponent, float midpoint);
     static FP_LONG AccelClassic(float x, float acceleration, float exponent);
     static FP_LONG AccelMotivity(float x, float acceleration, float exponent, float midpoint);
+    static FP_LONG AccelSynchronous(float x, float sync_speed, float gamma, float smoothness, float motivity, bool gain);
     static FP_LONG AccelJump(float x, float acceleration, float exponent, float midpoint, bool gain);
     static FP_LONG AccelLUT(float x, float values_x[], float values_y[], unsigned long count);
 
@@ -33,6 +35,7 @@ class TestManager {
     static FP_LONG AccelPower(float x); // Parameter values set manually!
     static FP_LONG AccelClassic(float x); // Parameter values set manually!
     static FP_LONG AccelMotivity(float x); // Parameter values set manually!
+    static FP_LONG AccelSynchronous(float x); // Parameter values set manually!
     static FP_LONG AccelNatural(float x); // Parameter values set manually!
     static FP_LONG AccelJump(float x); // Parameter values set manually!
     static FP_LONG AccelLUT(float x); // Parameter values set manually!
@@ -47,6 +50,7 @@ class TestManager {
     static void SetAcceleration(FP_LONG acceleration);
     static void SetExponent(FP_LONG exponent);
     static void SetMidpoint(FP_LONG midpoint);
+    static void SetMotivity(FP_LONG motivity);
     static void SetRotationAngle(FP_LONG rotationAngle);
     static void SetAngleSnap_Angle(FP_LONG angleSnap_Angle);
     static void SetAngleSnap_Threshold(FP_LONG angleSnap_Threshold);
@@ -59,6 +63,7 @@ class TestManager {
     static void SetAcceleration(float acceleration);
     static void SetExponent(float exponent);
     static void SetMidpoint(float midpoint);
+    static void SetMotivity(float motivity);
     static void SetRotationAngle(float rotationAngle);
     static void SetAngleSnap_Angle(float angleSnap_Angle);
     static void SetAngleSnap_Threshold(float angleSnap_Threshold);

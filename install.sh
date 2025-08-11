@@ -12,7 +12,7 @@ fi
 CONFIG_FILE="driver/config.h"
 ENUM_FILE="shared_definitions.h"
 
-# Step 1: Extract the number from the config file
+# Extract the number from the config file
 mode_number=$(grep -Po '^#define\s+ACCELERATION_MODE\s+\K\d+' "$CONFIG_FILE")
 
 if [[ "$mode_number" ]]; then
@@ -25,7 +25,7 @@ if [[ "$mode_number" ]]; then
 		mode_number=$((mode_number+2))
 	fi
 
-	# Step 2: Find matching enum entry from shared_definitions.h
+	# Find matching enum entry from shared_definitions.h
 	mode_name=$(grep -Po "AccelMode_[A-Za-z0-9_]+\s*=\s*$mode_number\b" "$ENUM_FILE" | awk -F= '{print $1}' | tr -d '[:space:]')
 
 	if [[ -z "$mode_name" ]]; then
@@ -33,11 +33,16 @@ if [[ "$mode_number" ]]; then
 		  exit 1
 	fi
 
-	# Step 3: Replace number in config.h with the enum name
+	# Replace number in config.h with the enum name
 	sudo sed -i -E "s|(#define\s+ACCELERATION_MODE\s+)$old_mode_numer|\1$mode_name|" "$CONFIG_FILE"
 
-	echo "Replaced ACCELERATION_MODE $old_mode_numer with $mode_name in $CONFIG_FILE"
+	echo "Done! Replaced ACCELERATION_MODE $old_mode_numer with $mode_name in $CONFIG_FILE"
 
+fi
+
+if ! grep -q MOTIVITY "$CONFIG_FILE"; then
+	# Add missing Motivity parameter
+	sudo sed -i -E '/^#define\s+MIDPOINT\s+/a #define MOTIVITY 1.5' "$CONFIG_FILE"
 fi
 
 # Install the driver and activate the dkms module

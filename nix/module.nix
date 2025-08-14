@@ -110,7 +110,7 @@ let
     classic = mkOption {
       description = ''
         Acceleration mode based on an exponent and multiplier as found in Quake 3.
-        See [RawAccel: Classic](https://github.com/RawAccelOfficial/rawaccel/blob/5b39bb6/doc/Guide.md#power)
+        See [RawAccel: Classic](https://github.com/RawAccelOfficial/rawaccel/blob/5b39bb6/doc/Guide.md#classic)
       '';
       type = types.submodule {
         options = {
@@ -181,10 +181,77 @@ let
       ];
     };
 
+    synchronous = mkOption {
+      description = ''
+        This acceleration type is designed to match how we naturally perceive changes in speed, using a logarithmic sensitivity curve centered around a "synchronous speed." If the synchronous speed is set correctly, the sensitivity change will align with our intuitive estimation of speed differences.
+        See [RawAccel: Synchronous](https://github.com/RawAccelOfficial/rawaccel/blob/master/doc/Guide.md#synchronous)
+      '';
+      type = types.submodule {
+        options = {
+          gamma = mkOption {
+            type = floatRange 0.01 20.0;
+            default = 0.3;
+            apply = toString;
+            description = "Expresses how fast the change occurs";
+          };
+          smoothness = mkOption {
+            type = floatRange 0.1 20.0;
+            default = 1.0;
+            apply = toString;
+            description = "Affects how fast the changes tails in and out";
+          };
+          motivity = mkOption {
+            type = floatRange 1 10.0;
+            default = 2.0;
+            apply = toString;
+            description = "Expresses how much change will occur";
+          };
+          syncspeed = mkOption {
+            type = floatRange 0.01 20.0;
+            default = 2.0;
+            apply = toString;
+            description = "Works a bit like offset";
+          };
+          useSmoothing = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable gain";
+            apply = x: if x then "1" else "0";
+          };
+        };
+      };
+      apply = params: [
+        {
+          value = "5";
+          param = "AccelerationMode";
+        }
+        {
+          value = toString params.gamma;
+          param = "Exponent";
+        }
+        {
+          value = toString params.smoothness;
+          param = "Midpoint";
+        }
+        {
+          value = toString params.motivity;
+          param = "Motivity";
+        }
+        {
+          value = toString params.syncspeed;
+          param = "Acceleration";
+        }
+        {
+          value = params.useSmoothing;
+          param = "UseSmoothing";
+        }
+      ];
+    };
+
     natural = mkOption {
       description = ''
         Acceleration mode Natural features a concave curve which starts at 1 and approaches some maximum sensitivity. The sensitivity version of this curve can be found in the game Diabotical.
-        See [RawAccel: Motivity](https://github.com/RawAccelOfficial/rawaccel/blob/d179e22/doc/Guide.md#natural)
+        See [RawAccel: Natural](https://github.com/RawAccelOfficial/rawaccel/blob/d179e22/doc/Guide.md#natural)
       '';
       type = types.submodule {
         options = {
@@ -213,7 +280,7 @@ let
       };
       apply = params: [
         {
-          value = "5";
+          value = "6";
           param = "AccelerationMode";
         }
         {
@@ -268,7 +335,7 @@ let
       };
       apply = params: [
         {
-          value = "6";
+          value = "7";
           param = "AccelerationMode";
         }
         {
@@ -320,7 +387,7 @@ let
       };
       apply = params: [
         {
-          value = "7";
+          value = "8";
           param = "AccelerationMode";
         }
         {
@@ -448,6 +515,8 @@ in {
         ++ (optionals (params ? power) params.power)
         ++ (optionals (params ? classic) params.classic)
         ++ (optionals (params ? motivity) params.motivity)
+        ++ (optionals (params ? synchronous) params.synchronous)
+        ++ (optionals (params ? natural) params.natural)
         ++ (optionals (params ? jump) params.jump)
         ++ (optionals (params ? lut) params.lut);
     };

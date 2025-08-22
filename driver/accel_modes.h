@@ -21,6 +21,12 @@ struct ModesConstants {
     FP_LONG minSens;
     FP_LONG maxSens;
 
+    // Classic
+    FP_LONG classic_sign;
+    FP_LONG classic_constant;
+    FP_LONG classic_cap_x;
+    FP_LONG classic_cap_y;
+
     // Jump
     FP_LONG C0; // the "integral" evaluated at 0
     FP_LONG r; // basically a smoothness factor

@@ -126,6 +126,19 @@ let
             apply = toString;
             description = "Classic acceleration exponent";
           };
+          useSmoothing = mkOption {
+            type = bool;
+            default = false;
+            apply = toString;
+            description = "Enables the ability to use smooth capping in the Classic curve";
+            apply = x: if x then "1" else "0";
+          };
+          midpoint = mkOption {
+            type = floatRange 0.1 50.0;
+            default = 6.0;
+            apply = toString;
+            description = "Only used when useSmoothing is enabled, it a applies a smooth cap to the set value";
+          };
         };
       };
       apply = params: [
@@ -140,6 +153,14 @@ let
         {
           value = toString params.classic.exponent;
           param = "Exponent";
+        }
+        {
+          value = toString params.classic.useSmoothing;
+          param = "useSmoothing";
+        }
+        {
+          value = toString params.classic.useSmoothing;
+          param = "Midpoint";
         }
       ];
     };

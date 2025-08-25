@@ -129,7 +129,6 @@ let
           useSmoothing = mkOption {
             type = bool;
             default = false;
-            apply = toString;
             description = "Enables the ability to use smooth capping in the Classic curve";
             apply = x: if x then "1" else "0";
           };

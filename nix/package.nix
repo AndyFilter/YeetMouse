@@ -7,6 +7,7 @@ pkgs @ {
   writeShellScript,
   makeDesktopItem,
   kernel ? pkgs.linuxPackages.kernel,
+  kernelModuleMakeFlags ? pkgs.linuxPackages.kernelModuleMakeFlags,
   ...
 }:
 
@@ -33,7 +34,7 @@ let
       pkgs.glfw3
     ];
 
-    makeFlags = kernel.makeFlags ++ [
+    makeFlags = kernelModuleMakeFlags ++ [
       "KBUILD_OUTPUT=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "-C"
       "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"

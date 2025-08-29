@@ -50,7 +50,7 @@ let
             description = "Linear acceleration multiplier";
           };
           useSmoothing = mkOption {
-            type = bool;
+            type = types.bool;
             default = false;
             description = "Enables the ability to use smooth capping in the Linear curve";
             apply = x: if x then "1" else "0";
@@ -147,7 +147,7 @@ let
             description = "Classic acceleration exponent";
           };
           useSmoothing = mkOption {
-            type = bool;
+            type = types.bool;
             default = false;
             description = "Enables the ability to use smooth capping in the Classic curve";
             apply = x: if x then "1" else "0";

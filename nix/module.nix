@@ -55,8 +55,8 @@ let
             description = "Enables the ability to use smooth capping in the Linear curve";
             apply = x: if x then "1" else "0";
           };
-          midpoint = mkOption {
-            type = floatRange 0.1 50.0;
+          smoothCap = mkOption {
+            type = floatRange 0.1 10.0;
             default = 6.0;
             apply = toString;
             description = "Only used when useSmoothing is enabled, it a applies a smooth cap to the set value";
@@ -77,7 +77,7 @@ let
           param = "useSmoothing";
         }
         {
-          value = toString params.midpoint;
+          value = toString params.smoothCap;
           param = "Midpoint";
         }
       ];
@@ -105,6 +105,18 @@ let
             default = 1.0;
             description = "Speed output offset";
           };
+          useSmoothing = mkOption {
+            type = bool;
+            default = false;
+            description = "Enables the ability to use smooth capping in the Power curve";
+            apply = x: if x then "1" else "0";
+          };
+          smoothCap = mkOption {
+            type = floatRange 0.1 10.0;
+            default = 6;
+            apply = toString;
+            description = "Only used when useSmoothing is enabled, it a applies a smooth cap to the set value";
+          };
         };
       };
       apply = params: [
@@ -123,6 +135,14 @@ let
         {
           value = toString params.outputOffset;
           param = "Midpoint";
+        }
+                {
+          value = toString params.power.useSmoothing;
+          param = "useSmoothing";
+        }
+        {
+          value = toString params.power.smoothCap;
+          param = "Motivity";
         }
       ];
     };
@@ -152,8 +172,8 @@ let
             description = "Enables the ability to use smooth capping in the Classic curve";
             apply = x: if x then "1" else "0";
           };
-          midpoint = mkOption {
-            type = floatRange 0.1 50.0;
+          smoothCap = mkOption {
+            type = floatRange 0.1 10.0;
             default = 6.0;
             apply = toString;
             description = "Only used when useSmoothing is enabled, it a applies a smooth cap to the set value";
@@ -178,7 +198,7 @@ let
           param = "useSmoothing";
         }
         {
-          value = toString params.classic.midpoint;
+          value = toString params.classic.smoothCap;
           param = "Midpoint";
         }
       ];

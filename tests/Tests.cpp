@@ -138,6 +138,7 @@ bool Tests::TestAccelPower(float range_min, float range_max) {
         TestManager::SetAcceleration(5.0f);
         TestManager::SetExponent(0.01f);
         TestManager::SetMidpoint(1.0f);
+        TestManager::SetUseSmoothing(false);
         TestManager::UpdateModesConstants();
 
         if (!TestManager::ValidateConstants()) {
@@ -160,6 +161,7 @@ bool Tests::TestAccelPower(float range_min, float range_max) {
         TestManager::SetAcceleration(5.0f);
         TestManager::SetExponent(1.0f);
         TestManager::SetMidpoint(5.0f);
+        TestManager::SetUseSmoothing(false);
         TestManager::UpdateModesConstants();
 
         if (!TestManager::ValidateConstants()) {
@@ -183,6 +185,7 @@ bool Tests::TestAccelPower(float range_min, float range_max) {
         TestManager::SetAcceleration(50.f);
         TestManager::SetExponent(0.001f);
         TestManager::SetMidpoint(5.0f);
+        TestManager::SetUseSmoothing(false);
         TestManager::UpdateModesConstants();
 
         if (TestManager::ValidateConstants()) {
@@ -214,6 +217,134 @@ bool Tests::TestAccelPower(float range_min, float range_max) {
                 supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(value));
             }
         }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(5.0f);
+        TestManager::SetExponent(1.0f);
+        TestManager::SetMidpoint(0.1f);
+        TestManager::SetMotivity(1.5f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        if (!TestManager::ValidateConstants()) {
+            fprintf(stderr, "Invalid constants\n");
+            supervisor.result = false;
+        }
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float value = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelPower(value);
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(value));
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(8.0f);
+        TestManager::SetExponent(0.2f);
+        TestManager::SetMidpoint(0.1f);
+        TestManager::SetMotivity(1.5f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        if (!TestManager::ValidateConstants()) {
+            fprintf(stderr, "Invalid constants\n");
+            supervisor.result = false;
+        }
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float value = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelPower(value);
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(value));
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(0.12f);
+        TestManager::SetExponent(0.21f);
+        TestManager::SetMidpoint(0.9f);
+        TestManager::SetMotivity(0.92f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        if (!TestManager::ValidateConstants()) {
+            fprintf(stderr, "Invalid constants\n");
+            supervisor.result = false;
+        }
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float value = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelPower(value);
+            // printf("x: %f, Fixed Point: %f, Floating Point: %f, error: %f, value%i\n", value, FP64_ToFloat(res), TestManager::EvalFloatFunc(value), FP64_ToFloat(res) - TestManager::EvalFloatFunc(value), IsAccelValueGood(res));
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(value));
+            // printf("Validation: %i\n", supervisor.result);
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(0.12f);
+        TestManager::SetExponent(0.21f);
+        TestManager::SetMidpoint(0.93f);
+        TestManager::SetMotivity(0.92f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        if (TestManager::ValidateConstants()) { // Should be invalid!
+            fprintf(stderr, "Valid constants (should be invalid)\n");
+            supervisor.result = false;
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(0.12f);
+        TestManager::SetExponent(0.21f);
+        TestManager::SetMidpoint(0.93f);
+        TestManager::SetMotivity(0.92f);
+        TestManager::SetUseSmoothing(false);
+        TestManager::UpdateModesConstants();
+
+        if (!TestManager::ValidateConstants()) {
+            fprintf(stderr, "Invalid constants\n");
+            supervisor.result = false;
+        }
+
+        for (int i = 0; i < BASIC_TEST_STEPS; i++) {
+            float value = range_min + static_cast<float>(i) * (range_max - range_min) / BASIC_TEST_STEPS;
+            auto res = TestManager::AccelPower(value);
+            // printf("x: %f, Fixed Point: %f, Floating Point: %f, error: %f, value%i\n", value, FP64_ToFloat(res), TestManager::EvalFloatFunc(value), FP64_ToFloat(res) - TestManager::EvalFloatFunc(value), IsAccelValueGood(res));
+
+            supervisor.result &= IsAccelValueGood(res);
+            supervisor.result &= IsCloseEnoughRelative(res, TestManager::EvalFloatFunc(value));
+            // printf("Validation: %i\n", supervisor.result);
+        }
+
+        supervisor.NextTest();
+
+        TestManager::SetAccelMode(AccelMode_Power);
+        TestManager::SetAcceleration(0.f);
+        TestManager::SetExponent(0.21f);
+        TestManager::SetMidpoint(0.93f);
+        TestManager::SetMotivity(0.92f);
+        TestManager::SetUseSmoothing(true);
+        TestManager::UpdateModesConstants();
+
+        if (TestManager::ValidateConstants()) { // Should be invalid!
+            fprintf(stderr, "Valid constants (should be invalid)\n");
+            supervisor.result = false;
+        }
+
+
     }
     catch (std::exception &ex) {
         fprintf(stderr, "Exception: %s, in Power mode\n", ex.what());

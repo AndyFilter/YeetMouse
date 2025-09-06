@@ -146,9 +146,14 @@ void update_constants(void) {
             g_Acceleration = 0;
             g_AccelerationMode = AccelMode_Current;
         }
-        else if (g_Midpoint == 0) {
+        else if (g_Midpoint == 0 && !g_UseSmoothing) {
             modesConst.offset_x = 0;
             modesConst.power_constant = 0;
+        }
+        else if ((g_Midpoint >= g_Motivity) && g_UseSmoothing) {
+            printk("YeetMouse: Error: Acceleration mode 'Power' is not supported for output offsets higher than the smooth cap.\n");
+            g_Acceleration = 0;
+            g_AccelerationMode = AccelMode_Current;
         }
         else if (FP64_DivPrecise(g_Midpoint, FP64_Mul(g_Acceleration, g_Exponent)) > FP64_100) { // 100 here is completely arbitrary
             printk("YeetMouse: Error: Invalid parameters for the 'Power' mode.\n");
@@ -161,14 +166,40 @@ void update_constants(void) {
             // modesConst.power_constant = FP64_DivPrecise(FP64_Mul(modesConst.offset_x, FP64_Mul(g_Midpoint, g_Exponent)), FP64_Add(g_Exponent, FP64_ONE));
 
             FP_LONG exponent_plus_one = FP64_Add(g_Exponent, FP64_1);
-            FP_LONG one_over_exponent = FP64_DivPrecise(FP64_1, g_Exponent);
-            FP_LONG base_value = FP64_DivPrecise(g_Midpoint, exponent_plus_one);
+            if (g_Midpoint == 0) {
+                modesConst.offset_x = 0;
+                modesConst.power_constant = 0;
+            } else {
+                FP_LONG one_over_exponent = FP64_DivPrecise(FP64_1, g_Exponent);
+                FP_LONG base_value = FP64_DivPrecise(g_Midpoint, exponent_plus_one);
 
-            FP_LONG pow_result = FP64_Pow(base_value, one_over_exponent);
-            modesConst.offset_x = FP64_DivPrecise(pow_result, g_Acceleration);
+                FP_LONG pow_result = FP64_Pow(base_value, one_over_exponent);
+                modesConst.offset_x = FP64_DivPrecise(pow_result, g_Acceleration);
 
-            FP_LONG intermediate = FP64_Mul(modesConst.offset_x, FP64_Mul(g_Midpoint, g_Exponent));
-            modesConst.power_constant = FP64_DivPrecise(intermediate, exponent_plus_one);
+                FP_LONG intermediate = FP64_Mul(modesConst.offset_x, FP64_Mul(g_Midpoint, g_Exponent));
+                modesConst.power_constant = FP64_DivPrecise(intermediate, exponent_plus_one);
+            }
+
+            if (g_UseSmoothing) {
+                FP_LONG cap_y = g_Motivity;
+                FP_LONG cap_x = FP64_FromInt(0);
+                if (cap_y > FP64_FromInt(0)) {
+                  cap_x = FP64_DivPrecise(
+                      FP64_Pow(
+                          FP64_DivPrecise(cap_y, exponent_plus_one),
+                          FP64_DivPrecise(FP64_1, g_Exponent)),
+                                          g_Acceleration);
+                }
+                FP_LONG constant = FP64_Mul(g_Acceleration, cap_x);
+                constant = FP64_Pow(constant, g_Exponent);
+                constant = FP64_Mul(constant, cap_x);
+                constant = FP64_Add(constant, modesConst.power_constant);
+                constant = FP64_Sub(constant, FP64_Mul(cap_x, cap_y));
+
+                modesConst.cap_x = cap_x;
+                modesConst.cap_y = cap_y;
+                modesConst.gain_constant = constant;
+            }
         }
     }
 
@@ -333,10 +364,27 @@ FP_LONG accel_linear(FP_LONG speed) {
 FP_LONG accel_power(FP_LONG speed) {
     if (speed <= modesConst.offset_x)
         speed = g_Midpoint;
-    else if (modesConst.power_constant == 0)
-        speed = FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent);
-    else
-        speed = FP64_Add(FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent), FP64_DivPrecise(modesConst.power_constant, speed));
+    else {
+        if (g_UseSmoothing) {
+            if (speed < modesConst.cap_x) {
+                if (modesConst.power_constant == 0)
+                    speed = FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent);
+                else
+                    speed = FP64_Add(FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent), FP64_DivPrecise(modesConst.power_constant, speed));
+            } else {
+                if (modesConst.cap_x == FP64_FromInt(0)) {
+                    speed = modesConst.cap_y;
+                } else {
+                    speed = FP64_Add(FP64_DivPrecise(modesConst.gain_constant, speed), modesConst.cap_y);
+                }
+            }
+        } else {
+            if (modesConst.power_constant == 0)
+                speed = FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent);
+            else
+                speed = FP64_Add(FP64_PowFast(FP64_Mul(speed, g_Acceleration), g_Exponent), FP64_DivPrecise(modesConst.power_constant, speed));
+        }
+    }
     return speed;
 }
 

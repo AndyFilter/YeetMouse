@@ -13,7 +13,7 @@
 #define NONE_EVENT_VALUE 0
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
-  #define __cleanup_events 0
+#define __cleanup_events 0
 #else
 #define __cleanup_events 1
 #endif
@@ -27,7 +27,7 @@ struct mouse_state {
 #if __cleanup_events
 static unsigned int driver_events(struct input_handle *handle, struct input_value *vals, unsigned int count) {
 #else
-  static void driver_events(struct input_handle *handle, const struct input_value *vals, unsigned int count) {
+static void driver_events(struct input_handle *handle, const struct input_value *vals, unsigned int count) {
 #endif
     struct mouse_state *state = handle->private;
     struct input_dev *dev = handle->dev;
@@ -37,15 +37,20 @@ static unsigned int driver_events(struct input_handle *handle, struct input_valu
     struct input_value *v;
     int error;
 
+    bool seen_x = false;
+    bool seen_y = false;
+
     for (v = (struct input_value *) vals; v != vals + count; v++) {
         if (v->type == EV_REL) {
             /* Find input_value for EV_REL events we're interested in and store values */
             switch (v->code) {
                 case REL_X:
                     state->x = (int) v->value;
+                    seen_x = true;
                     break;
                 case REL_Y:
                     state->y = (int) v->value;
+                    seen_y = true;
                     break;
                 case REL_WHEEL:
                     state->wheel = (int) v->value;
@@ -117,6 +122,26 @@ static unsigned int driver_events(struct input_handle *handle, struct input_valu
                     *end = *v;
                 end++;
             }
+
+            /* Inject missing axes if needed (transformed non-NONE but not seen in this frame) */
+            if (x != NONE_EVENT_VALUE && !seen_x) {
+                end->type = EV_REL;
+                end->code = REL_X;
+                end->value = x;
+                end++;
+            }
+            if (y != NONE_EVENT_VALUE && !seen_y) {
+                end->type = EV_REL;
+                end->code = REL_Y;
+                end->value = y;
+                end++;
+            }
+
+            /* Copy the SYN we broke on */
+            if (end != v_syn)
+                *end = *v_syn;
+            end++;
+
             out_count = end - vals;
             /* Apply new values to the queued (raw) events, same as above.
              * NOTE: This might (strictly speaking) not be necessary, but this way we leave
@@ -156,7 +181,7 @@ unchanged_return:
 #if __cleanup_events
     return out_count;
 #else
-  return;
+    return;
 #endif
 }
 

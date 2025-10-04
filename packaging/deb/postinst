@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+PKG_NAME="yeetmouse"
+DKMS_NAME="yeetmouse-driver"
+VERSION="__VERSION__"
+SRC_DIR="/usr/src/${DKMS_NAME}-${VERSION}"
+
+echo "Configuring ${PKG_NAME}..."
+
+if [ ! -d "$SRC_DIR" ]; then
+  echo "Error: DKMS source '$SRC_DIR' not found." >&2
+  exit 1
+fi
+
+# Register and build via DKMS
+if ! dkms status | grep -q "^${DKMS_NAME}/${VERSION}"; then
+  dkms add -m "${DKMS_NAME}" -v "${VERSION}" || true
+fi
+
+dkms build -m "${DKMS_NAME}" -v "${VERSION}"
+dkms install -m "${DKMS_NAME}" -v "${VERSION}" --force
+
+# Load module now (non-fatal)
+modprobe yeetmouse || true
+
+echo "YeetMouse installed and module loaded (if possible)."

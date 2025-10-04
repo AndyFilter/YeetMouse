@@ -1,0 +1,10 @@
+Package: yeetmouse
+Version: __VERSION__
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: dkms, linux-headers-amd64 | linux-headers-generic | linux-headers, libglfw3, libgl1
+Maintainer: Maciej Grzęda <gmaciejg525@gmail.com>
+Description: Custom mouse acceleration kernel driver with GUI
+ YeetMouse provides a custom kernel-level mouse acceleration module and a GUI
+ interface to configure its parameters.

@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+DKMS_NAME="yeetmouse-driver"
+INSTALLED_VERSION=$(dkms status -k $(uname -r) | grep -oP '^(yeetmouse-driver[\/(, )]) ?\K([0-9.]+)')
+
+echo "Removing YeetMouse via DKMS..."
+
+# Try to unload module (non-fatal)
+modprobe -r yeetmouse || true
+
+# Remove via DKMS (ignore failures)
+dkms remove -m "${DKMS_NAME}" -v "${INSTALLED_VERSION}" --all || true
+
+echo "YeetMouse DKMS module removed."

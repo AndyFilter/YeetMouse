@@ -102,18 +102,12 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                 if (v->type == EV_REL) {
                     switch (v->code) {
                         case REL_X:
-                            if (__cleanup_events && x == NONE_EVENT_VALUE)
-                                continue;
                             v->value = x;
                             break;
                         case REL_Y:
-                            if (__cleanup_events && y == NONE_EVENT_VALUE)
-                                continue;
                             v->value = y;
                             break;
                         case REL_WHEEL:
-                            if (__cleanup_events && wheel == NONE_EVENT_VALUE)
-                                continue;
                             v->value = wheel;
                             break;
                     }
@@ -124,13 +118,13 @@ static void driver_events(struct input_handle *handle, const struct input_value 
             }
 
             /* Inject missing axes if needed (transformed non-NONE but not seen in this frame) */
-            if (x != NONE_EVENT_VALUE && !seen_x) {
+            if (x != NONE_EVENT_VALUE && !seen_x && ksize(vals) > (end - vals + 1) * sizeof(*vals)) {
                 end->type = EV_REL;
                 end->code = REL_X;
                 end->value = x;
                 end++;
             }
-            if (y != NONE_EVENT_VALUE && !seen_y) {
+            if (y != NONE_EVENT_VALUE && !seen_y && ksize(vals) > (end - vals + 1) * sizeof(*vals)) {
                 end->type = EV_REL;
                 end->code = REL_Y;
                 end->value = y;

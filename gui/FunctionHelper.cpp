@@ -405,7 +405,7 @@ bool CachedFunction::ValidateSettings() {
     if (params->exponent <= 0)
         isValid = false;
 
-    if (params->accel <= 0)
+    if (params->accel < 0 || (params->accelMode != AccelMode_Linear && params->accel < 0))
         isValid = false;
 
     if (params->midpoint < 0)

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+VERSION=$(grep -Po '(?<=DKMS_VER\?=)[0-9\.]+' "Makefile")
+
 # Get the installed version of the driver
 installed_version=$(dkms status -k $(uname -r) | grep -oP '^([l|y]eetmouse-driver[\/(, )]) ?\K([0-9.]+)')
 
@@ -10,7 +12,7 @@ if [[ -z "$installed_version" ]]; then
 fi
 
 # Check if the installed version is old
-if [[ $(printf '%s\n' "$installed_version" "0.9.1" | sort -V | head -n1) == "$installed_version" ]]; then
+if [[ $(printf '%s\n' "$installed_version" "$VERSION" | sort -V | head -n1) != "$VERSION" ]]; then
 	echo "Please uninstall the old driver ($installed_version) using the old uninstaller first!"
 	exit 1
 fi

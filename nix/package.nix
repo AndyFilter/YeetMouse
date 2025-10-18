@@ -1,8 +1,7 @@
 { shortRev ? "dev" }:
-pkgs @ rec {
+pkgs {
   lib,
   bash,
-  stdenv ? kernel.stdenv,
   coreutils,
   writeShellScript,
   makeDesktopItem,
@@ -15,7 +14,7 @@ let
   mkPackage = overrides @ {
     kernel,
     ...
-  }: (stdenv.mkDerivation rec {
+  }: (kernelModuleMakeFlags.stdenv.mkDerivation rec {
     pname = "yeetmouse";
     version = shortRev;
     src = lib.fileset.toSource {
@@ -30,7 +29,7 @@ let
       copyDesktopItems
     ];
     buildInputs = [
-      stdenv.cc.cc.lib
+      kernelModuleMakeFlags.stdenv.cc.cc.lib
       pkgs.glfw3
     ];
 

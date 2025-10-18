@@ -2,7 +2,6 @@
 pkgs @ {
   lib,
   bash,
-  stdenv,
   coreutils,
   writeShellScript,
   makeDesktopItem,
@@ -15,7 +14,7 @@ let
   mkPackage = overrides @ {
     kernel,
     ...
-  }: (stdenv.mkDerivation rec {
+  }: (kernel.stdenv.mkDerivation rec {
     pname = "yeetmouse";
     version = shortRev;
     src = lib.fileset.toSource {

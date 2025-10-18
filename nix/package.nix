@@ -1,7 +1,8 @@
 { shortRev ? "dev" }:
-pkgs @ {
+pkgs @ rec {
   lib,
   bash,
+  stdenv ? kernel.stdenv,
   coreutils,
   writeShellScript,
   makeDesktopItem,
@@ -14,7 +15,7 @@ let
   mkPackage = overrides @ {
     kernel,
     ...
-  }: (kernel.stdenv.mkDerivation rec {
+  }: (stdenv.mkDerivation rec {
     pname = "yeetmouse";
     version = shortRev;
     src = lib.fileset.toSource {

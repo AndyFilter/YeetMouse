@@ -2,6 +2,7 @@
 #define GUI_CONFIGHELPER_H
 
 #include "DriverHelper.h"
+#include <string>
 
 namespace ConfigHelper {
     std::string ExportPlainText(Parameters params, bool save_to_file);
@@ -11,6 +12,8 @@ namespace ConfigHelper {
     bool ImportFile(char *lut_data, Parameters &params);
 
     bool ImportClipboard(char *lut_data, const char *clipboard, Parameters &params);
+
+    void SetRepoRoot(const std::string &root_path);
 } // ConfigHelper
 
 #endif //GUI_CONFIGHELPER_H

@@ -14,7 +14,7 @@ let
   mkPackage = overrides @ {
     kernel,
     ...
-  }: (kernelModuleMakeFlags.stdenv.mkDerivation rec {
+  }: (kernel.stdenv.mkDerivation rec {
     pname = "yeetmouse";
     version = shortRev;
     src = lib.fileset.toSource {
@@ -29,7 +29,7 @@ let
       copyDesktopItems
     ];
     buildInputs = [
-      kernelModuleMakeFlags.stdenv.cc.cc.lib
+      kernel.stdenv.cc.cc.lib
       pkgs.glfw3
     ];
 

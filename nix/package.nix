@@ -1,5 +1,5 @@
 { shortRev ? "dev" }:
-pkgs {
+pkgs @ {
   lib,
   bash,
   coreutils,

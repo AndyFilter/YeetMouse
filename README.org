@@ -27,6 +27,10 @@
    Keep in mind that the program needs to be *run with sudo privileges*.
    To run, simply use =sudo -E ./YeetMouseGui=
 
+*** In-app usage tips
+   + Use =File -> Export -> Config.h format= to save the currently loaded parameters; the save dialog now opens directly in =driver/= with =config.h= pre-selected.
+   + When you need to refresh the driver after changing the config, pick =More -> Reinstall driver= to run =uninstall.sh= followed by =install.sh= from the repository.
+
 ** Arch/Manjaro
    For Arch and Manjaro, a =PKGBUILD= has been written for seamless integration into pacman.
 

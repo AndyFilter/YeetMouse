@@ -49,3 +49,9 @@ clean-all: clean
 clean:
 	rm -rf *.o
 	rm $(TARGET)
+
+.PHONY: debug
+
+debug:
+	@echo "Building GUI for debugging..."
+	$(MAKE) all CXXFLAGS='-Wall -std=c++17 -g -O0 -I External/'

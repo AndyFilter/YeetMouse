@@ -45,6 +45,25 @@
    #+end_src
    All your mice should now be bound to the generic usbhid driver again.
 
+** Debian/Ubuntu (Quick Install) (DOESNT WORK YET - BETA TESTING)
+    /(If You have YeetMouse installed manually, uninstall it first)/
+
+    Simplest way to install is to use the install script:
+    #+begin_src sh
+    curl -sL https://raw.githubusercontent.com/AndyFilter/YeetMouse/main/install_latest.sh | bash
+    #+end_src
+
+    Or download the latest .deb from the [[https://github.com/AndyFilter/YeetMouse/releases/latest][Releases]].
+    Then install it using:
+    #+begin_src sh
+    sudo dpkg -i yeetmouse_<version>_amd64.deb
+    sudo apt-get install -f
+    #+end_src
+
+    Launch the GUI by running =sudo YeetMouse=
+
+    To uninstall, run =sudo dpkg -r yeetmouse=
+
 ** Ubuntu (tested on 24.04 and 20.04)
   Simply use the installation and uninstallation scripts, =sudo ./install.sh= and =sudo ./uninstall.sh= respectively.
   If something doesn't work as expected, try installing manually as stated in section *Other distros*, and check all the error logs.

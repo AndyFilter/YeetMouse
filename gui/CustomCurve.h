@@ -15,6 +15,7 @@
 
 struct Ex_Vec2 : ImVec2 {
     bool is_locked = false;
+    bool use_polar_coordinates = false;
 
     Ex_Vec2(float x, float y) : ImVec2(x, y) {}
     Ex_Vec2(ImVec2 vec) : ImVec2(vec) {}

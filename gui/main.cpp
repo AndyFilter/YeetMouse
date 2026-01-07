@@ -657,7 +657,7 @@ int OnGui() {
                         ImGui::Checkbox("Lock control", &p.is_locked);
                         ImGui::SetItemTooltip("Control points won't be updated when smoothing");
                         ImGui::BeginGroup();
-                        ImGui::PushMultiItemsWidths(2, ImGui::GetContentRegionAvail().x);
+                        ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
                         drag_changed |= ImGui::DragFloat("##pos1x", &p.x, 0.5, p_min, p_max);
                         ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
                         drag_changed |= ImGui::DragFloat("##pos1y", &p.y, 0.01, 0, 10);
@@ -678,21 +678,59 @@ int OnGui() {
                                 control_points[i - 1][1] += drag;
                             }
                         }
-                        if (points.size() > 1)
+                        if (points.size() > 1) {
+                            ImGui::SeparatorText("Control points");
+                            ImGui::Checkbox("Polar coordinates", &p.use_polar_coordinates);
+                            ImGui::SetItemTooltip("Use polar coordinates for the control points");
                             for (int j = (i == points.size() - 1 || i == 0) ? 0 : 1; j >= 0; j--) {
                                 ImGui::PushID(j);
                                 ImGui::BeginGroup();
-                                ImGui::PushMultiItemsWidths(2, ImGui::GetContentRegionAvail().x);
+                                ImGui::PushMultiItemsWidths(3, ImGui::GetContentRegionAvail().x);
                                 auto &p1 = control_points[i == points.size() - 1 ? (i - 1) : (i - j)][
                                     i == 0 ? 0 : i == points.size() - 1 ? 1 : j];
                                 // p.x = std::clamp(p.x, i > 0 ? points[i-1].x + 0.5f : 0, i < points.size() - 1 ? points[i+1].x - 0.5f : 1000);
-                                modified |= ImGui::DragFloat("##pos2x", &p1.x, 0.5, p_min, p_max);
-                                ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
-                                modified |= ImGui::DragFloat("##pos2y", &p1.y, 0.01, 0, 10);
+                                if (p.use_polar_coordinates) {
+                                    auto dist_vector = p1 - p;
+                                    float length = std::sqrt(ImLengthSqr(dist_vector));
+                                    modified |= ImGui::DragFloat("Magnitude", &length, 0.5, 0.1, p_max);
+                                    ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
+                                    float angle = ImAtan2(dist_vector.y, dist_vector.x) * 180.0 / M_PI;
+                                    modified |= ImGui::DragFloat("Angle", &angle, 0.05, -180, 180);
+                                    angle = angle * M_PI / 180.0;
+                                    auto direction_vector = ImVec2(std::cos(angle), std::sin(angle));
+                                    p1 = p + direction_vector * length;
+                                } else {
+                                    modified |= ImGui::DragFloat("##pos2x", &p1.x, 0.5, p_min, p_max);
+                                    ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
+                                    modified |= ImGui::DragFloat("##pos2y", &p1.y, 0.01, 0, 10);
+                                }
+
+                                if (!((i == 0 && j == 0) || (i == points.size() - 1))) {
+                                    // The Align button should be on the same line as the coordinates input section
+                                    ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
+                                    if (ImGui::Button("Align")) {
+                                        // We already took into consideration
+                                        // the begining and the end in the logic
+                                        // in the condition for this block
+                                        int new_j = j == 0 ? 1 : 0;
+                                        auto &p2 = control_points[i - new_j][new_j];
+                                        // We want to preserve the current length
+                                        auto length = std::sqrt(ImLengthSqr(p1 - p));
+
+                                        // obtaining the direction of the other
+                                        // vector, we need the direction to align
+                                        auto length_vector_2 = p2 - p;
+                                        auto length_2 = std::sqrt(ImLengthSqr(length_vector_2));
+                                        auto direction = length_vector_2 / length_2;
+                                        p1 = p - direction * length;
+                                        modified = true;
+                                    }
+                                }
                                 ImGui::PopItemWidth();
                                 ImGui::EndGroup();
                                 ImGui::PopID();
                             }
+                    }
                         if (ImGui::Button("Remove", {-1, 0})) {
                             points.erase(points.begin() + i);
                             if (!points.empty()) {

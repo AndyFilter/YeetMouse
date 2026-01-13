@@ -687,8 +687,7 @@ int OnGui() {
                             bool is_start_or_end_point = (i == 0 || (i == points.size() - 1));
                             ImGui::BeginGroup();
                             // The ternary operator is to handle the start and
-                            // end point of the curve because there is no aling
-                            // button
+                            // end point of the curve because there is no align-button
                             if (ImGui::BeginTable("##ControlPoints", is_start_or_end_point ? 2 : 3)) {
                                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
                                 ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
@@ -717,16 +716,71 @@ int OnGui() {
                                     if (p.use_polar_coordinates) {
                                         auto dist_vector = p1 - p;
                                         float length = std::sqrt(ImLengthSqr(dist_vector));
+
+                                        // Compute angle in radians (-pi/2, +pi/2)
+                                        float angle_deg = ImAtan2(dist_vector.y, dist_vector.x) * 180.0f / (float) M_PI;
+                                        bool is_left_side = std::abs(angle_deg) > 90.0f;
+                                        float pole = angle_deg > 0 ? 180.0f : -180.0f;
+                                        if (is_left_side)
+                                            angle_deg = pole - angle_deg;
+
+                                        const int last_idx = (int) points.size() - 1;
+                                        const bool is_outgoing =
+                                                (i == 0) ? true : (i == last_idx) ? false : (j == 0);
+
+                                        // Bound L (magnitude) so that p1.x stays within the allowed X interval.
+                                        auto MaxMagnitudeForHandle = [&](float theta_rad) -> float {
+                                            constexpr float eps = 1e-4f;
+
+                                            const float c = std::cos(theta_rad);
+                                            if (std::abs(c) < eps)
+                                                return 1e6f;
+                                            // near-vertical => x projection ~0 => effectively unbounded
+
+                                            // After mirroring, theta should be in (-pi/2, pi/2) so cos(theta) should be > 0.
+                                            // Still, guard just in case:
+                                            if (c <= 0.0f)
+                                                return 0.5f;
+
+                                            float dx;
+                                            if (is_outgoing) {
+                                                // Need i+1 to exist
+                                                if (i >= last_idx)
+                                                    return 0.5f;
+                                                dx = (points[i + 1].x - CURVE_POINTS_MARGIN) - p.x;
+                                            } else {
+                                                // incoming handle, need i-1 to exist
+                                                if (i <= 0)
+                                                    return 0.5f;
+                                                dx = p.x - (points[i - 1].x + CURVE_POINTS_MARGIN);
+                                            }
+
+                                            if (dx <= 0.0f)
+                                                return 0.5f;
+                                            return dx / c;
+                                        };
+
+                                        float angle_rad = angle_deg * (float) M_PI / 180.0f;
+
+                                        float p_max_dist = MaxMagnitudeForHandle(angle_rad);
+                                        // Small safety margin, so it's not exactly on the boundary
+                                        p_max_dist = std::max(p_max_dist - 0.5f, 0.5f);
+
                                         ImGui::PushItemWidth(-1);
-                                        modified |= ImGui::DragFloat("##Magnitude", &length, 0.5, 0.1, p_max);
+                                        modified |= ImGui::DragFloat("##Magnitude", &length, 0.5f, 0.5f, p_max_dist);
                                         ImGui::PopItemWidth();
-                                        float angle = ImAtan2(dist_vector.y, dist_vector.x) * 180.0 / M_PI;
+
                                         ImGui::TableNextColumn();
                                         ImGui::PushItemWidth(-1);
-                                        modified |= ImGui::DragFloat("##Angle", &angle, 0.05, -180, 180);
+                                        modified |= ImGui::DragFloat("##Angle", &angle_deg, 0.05f, -89.5f, 89.5f);
                                         ImGui::PopItemWidth();
-                                        angle = angle * M_PI / 180.0;
-                                        auto direction_vector = ImVec2(std::cos(angle), std::sin(angle));
+
+                                        // Convert back from UI angle to actual direction (undo mirror if needed)
+                                        if (is_left_side)
+                                            angle_deg = pole - angle_deg;
+
+                                        angle_rad = angle_deg * (float)M_PI / 180.0f;
+                                        auto direction_vector = ImVec2(std::cos(angle_rad), std::sin(angle_rad));
                                         p1 = p + direction_vector * length;
                                     } else {
                                         ImGui::PushItemWidth(-1);
@@ -738,11 +792,11 @@ int OnGui() {
                                         ImGui::PopItemWidth();
                                     }
                                     if (!((i == 0 && j == 0) || (i == points.size() - 1))) {
-                                        // The Align button should be on the same line as the coordinates input sectiona
+                                        // The Align button should be on the same line as the coordinates input section
                                         ImGui::TableNextColumn();
                                         if (ImGui::Button("Align")) {
                                             // We already took into consideration
-                                            // the begining and the end in the logic
+                                            // the beginning and the end in the logic
                                             // in the condition for this block
                                             int new_j = j == 0 ? 1 : 0;
                                             auto &p2 = control_points[i - new_j][new_j];

@@ -40,7 +40,7 @@ External/ImGui/%.o: External/ImGui/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 
-.PHONY: clean clean-all
+.PHONY: clean clean-all debug
 
 clean-all: clean
 	rm -rf External/ImGui/*.o
@@ -49,8 +49,6 @@ clean-all: clean
 clean:
 	rm -rf *.o
 	rm $(TARGET)
-
-.PHONY: debug
 
 debug:
 	@echo "Building GUI for debugging..."

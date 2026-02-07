@@ -9,6 +9,13 @@
 #include <chrono>
 #include <vector>
 #include <unistd.h>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <filesystem>
+#include <sstream>
+#include <cstdlib>
+#include <sys/wait.h>
 
 #include "External/ImGui/imgui_internal.h"
 #include "External/ImGui/implot_internal.h"
@@ -41,10 +48,122 @@ bool has_privilege = false;
 static char LUT_user_data[MAX_LUT_BUF_LEN];
 
 void ResetParameters();
+void StartReinstall();
 
 #define RefreshDevices() {devices = DriverHelper::DiscoverDevices(); \
                             if(selected_device >= devices.size())    \
                             selected_device = devices.size() - 1;}
+
+enum class ReinstallState {
+    Idle,
+    Running,
+    Succeeded,
+    Failed
+};
+
+std::atomic<ReinstallState> reinstall_state{ReinstallState::Idle};
+std::mutex reinstall_mutex;
+std::string reinstall_message;
+
+std::filesystem::path project_root;
+
+namespace {
+    void SetReinstallMessage(const std::string &message) {
+        std::lock_guard<std::mutex> lock(reinstall_mutex);
+        reinstall_message = message;
+    }
+
+    std::string ReadReinstallMessage() {
+        std::lock_guard<std::mutex> lock(reinstall_mutex);
+        return reinstall_message;
+    }
+
+    std::filesystem::path LocateProjectRoot() {
+        namespace fs = std::filesystem;
+        fs::path current = fs::current_path();
+        for (int i = 0; i < 6 && !current.empty(); i++) {
+            if (fs::exists(current / "install.sh") && fs::exists(current / "uninstall.sh"))
+                return current;
+            auto parent = current.parent_path();
+            if (parent == current)
+                break;
+            current = parent;
+        }
+        return {};
+    }
+} // namespace
+
+void StartReinstall() {
+    if (reinstall_state.load() == ReinstallState::Running)
+        return;
+
+    reinstall_state = ReinstallState::Running;
+    SetReinstallMessage("Starting reinstall...");
+
+    std::thread([] {
+        namespace fs = std::filesystem;
+        try {
+            fs::path root = project_root.empty() ? LocateProjectRoot() : project_root;
+            if (root.empty()) {
+                SetReinstallMessage("Failed to locate install scripts.");
+                reinstall_state = ReinstallState::Failed;
+                return;
+            }
+            if (project_root.empty()) {
+                project_root = root;
+                ConfigHelper::SetRepoRoot(project_root.string());
+            }
+
+            auto run_script = [&](const char *script_name) -> bool {
+                std::ostringstream status;
+                status << "Running " << script_name << "...";
+                SetReinstallMessage(status.str());
+
+                std::ostringstream command;
+                command << "cd \"" << root.string() << "\" && sudo ./" << script_name;
+                int result = std::system(command.str().c_str());
+                if (result == -1) {
+                    std::ostringstream error;
+                    error << script_name << " failed to start.";
+                    SetReinstallMessage(error.str());
+                    return false;
+                }
+
+                int exit_code = result;
+                if (WIFEXITED(result))
+                    exit_code = WEXITSTATUS(result);
+                else if (WIFSIGNALED(result))
+                    exit_code = 128 + WTERMSIG(result);
+
+                if (exit_code != 0) {
+                    std::ostringstream error;
+                    error << script_name << " failed (exit code " << exit_code << ")";
+                    SetReinstallMessage(error.str());
+                    return false;
+                }
+                return true;
+            };
+
+            if (!run_script("uninstall.sh")) {
+                reinstall_state = ReinstallState::Failed;
+                return;
+            }
+
+            if (!run_script("install.sh")) {
+                reinstall_state = ReinstallState::Failed;
+                return;
+            }
+
+            SetReinstallMessage("Reinstall completed successfully.");
+            reinstall_state = ReinstallState::Succeeded;
+        } catch (const std::exception &ex) {
+            std::ostringstream oss;
+            oss << "Reinstall error: " << ex.what();
+            SetReinstallMessage(oss.str());
+            reinstall_state = ReinstallState::Failed;
+        }
+    }).detach();
+}
 
 int OnGui() {
     using namespace std::chrono;
@@ -127,6 +246,20 @@ int OnGui() {
 
                 selected_mode = imported_params.accelMode;
             }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("More")) {
+            auto current_state = reinstall_state.load();
+            bool disable_menu_item = !has_privilege || current_state == ReinstallState::Running;
+            ImGui::BeginDisabled(disable_menu_item);
+            if (ImGui::MenuItem("Reinstall driver")) {
+                StartReinstall();
+            }
+            ImGui::EndDisabled();
+            if (!has_privilege)
+                ImGui::SetItemTooltip("Requires root privileges");
+            else if (current_state == ReinstallState::Running)
+                ImGui::SetItemTooltip("Reinstall already in progress");
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
@@ -1087,6 +1220,19 @@ int OnGui() {
             ImGui::SetItemTooltip("Invalid parameters");
         }
 
+        auto reinstall_status = reinstall_state.load();
+        auto reinstall_text = ReadReinstallMessage();
+        if (!reinstall_text.empty() && reinstall_status != ReinstallState::Idle) {
+            ImVec4 color(0.8f, 0.8f, 0.2f, 1.f);
+            if (reinstall_status == ReinstallState::Succeeded)
+                color = ImVec4(0.2f, 0.8f, 0.2f, 1.f);
+            else if (reinstall_status == ReinstallState::Failed)
+                color = ImVec4(0.8f, 0.2f, 0.2f, 1.f);
+
+            ImGui::Spacing();
+            ImGui::TextColored(color, "%s", reinstall_text.c_str());
+        }
+
         ImGui::SetWindowFontScale(1.f);
     } else
         ImGui::PopStyleColor();
@@ -1154,6 +1300,10 @@ void ResetParameters(void) {
 }
 
 int main() {
+    project_root = LocateProjectRoot();
+    if (!project_root.empty())
+        ConfigHelper::SetRepoRoot(project_root.string());
+
     GUI::Setup(OnGui);
     ImPlot::CreateContext();
 

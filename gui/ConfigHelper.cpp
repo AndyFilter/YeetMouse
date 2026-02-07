@@ -2,6 +2,12 @@
 #include <fstream>
 #include <optional>
 #include <unistd.h>
+#include <filesystem>
+#include <cstdio>
+
+namespace {
+    std::string repo_root;
+}
 
 char *OpenFile() {
     char *filename = new char[512];
@@ -26,12 +32,27 @@ char *OpenFile() {
 }
 
 char *SaveFile() {
+    static const std::string kDefaultFilename = "config.h";
     char *filename = new char[512];
     char cwd[1024];
     char command[2048] = R"(zenity --save --file-selection --title="Save Config" 2> /dev/null)";
     FILE *f = nullptr;
-    if (getcwd(cwd, sizeof(cwd)) != nullptr)
-        sprintf(command, R"(zenity --save --file-selection --title="Save Config" --filename="%s/" 2> /dev/null)", cwd);
+    namespace fs = std::filesystem;
+
+    std::string default_path;
+    if (!repo_root.empty()) {
+        fs::path driver_dir = fs::path(repo_root) / "driver";
+        if (fs::exists(driver_dir))
+            default_path = (driver_dir / kDefaultFilename).string();
+        else
+            default_path = repo_root;
+    } else if (getcwd(cwd, sizeof(cwd)) != nullptr)
+        default_path = std::string(cwd) + "/";
+
+    if (!default_path.empty())
+        snprintf(command, sizeof(command),
+                 R"(zenity --save --file-selection --title="Save Config" --confirm-overwrite --filename="%s" 2> /dev/null)",
+                 default_path.c_str());
 
     f = popen(command, "r");
     auto res = fgets(filename, 512, f);
@@ -47,6 +68,10 @@ char *SaveFile() {
 }
 
 namespace ConfigHelper {
+    void SetRepoRoot(const std::string &root_path) {
+        repo_root = root_path;
+    }
+
     std::string ExportPlainText(Parameters params, bool save_to_file) {
         std::stringstream res_ss;
 

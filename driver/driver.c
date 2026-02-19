@@ -2,13 +2,13 @@
 #include "config.h"
 #include "util.h"
 
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/usb/input.h>
 #include <linux/hid.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 #include <linux/version.h>
+#include <linux/usb/input.h>
 
 #define NONE_EVENT_VALUE 0
 
@@ -36,7 +36,6 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     struct input_value *end = (struct input_value *) vals;
     struct input_value *v;
     int error;
-
     bool seen_x = false;
     bool seen_y = false;
 
@@ -55,6 +54,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                 case REL_WHEEL:
                     state->wheel = (int) v->value;
                     break;
+                default: break;
             }
         } else if (
             (state->x != NONE_EVENT_VALUE || state->y != NONE_EVENT_VALUE) &&
@@ -93,6 +93,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                     case REL_WHEEL:
                         state->wheel = v->value;
                         break;
+                    default: break;
                 }
             }
         }
@@ -110,6 +111,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                         case REL_WHEEL:
                             v->value = wheel;
                             break;
+                        default: break;
                     }
                 }
                 if (end != v)
@@ -117,6 +119,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                 end++;
             }
 
+#if __cleanup_events
             /* Inject missing axes if needed (transformed non-NONE but not seen in this frame) */
             if (x != NONE_EVENT_VALUE && !seen_x && ksize(vals) > (end - vals + 1) * sizeof(*vals)) {
                 end->type = EV_REL;
@@ -135,6 +138,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
             if (end != v_syn)
                 *end = *v_syn;
             end++;
+#endif
 
             out_count = end - vals;
             /* Apply new values to the queued (raw) events, same as above.
@@ -158,6 +162,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
                                 continue;
                             v->value = wheel;
                             break;
+                        default: break;
                     }
                 }
                 if (end != v)

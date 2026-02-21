@@ -218,12 +218,14 @@ int accelerate(int *x, int *y)
     //Update acceleration parameters periodically
     update_params(now);
 
+    // Apply Pre-Scale
+    if(g_PreScale != FP64_1){
+        delta_x = FP64_Mul(delta_x, g_PreScale);
+        delta_y = FP64_Mul(delta_y, g_PreScale);
+    }
+    
     //Calculate velocity (one step before rate, which divides rate by the last frametime)
     speed = FP64_Sqrt(FP64_Add(FP64_Mul(delta_x, delta_x), FP64_Mul(delta_y, delta_y)));
-
-    // Apply Pre-Scale
-    if(g_PreScale != FP64_1)
-        speed = FP64_Mul(speed, g_PreScale);
 
     //Apply speedcap
     if(g_InputCap > 0){

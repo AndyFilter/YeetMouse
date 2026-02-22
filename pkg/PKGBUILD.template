@@ -2,24 +2,42 @@
 # Contributor: Christopher Williams <chilliams (at) gmail (dot) com>
 
 pkgbase=yeetmouse
-pkgname=('yeetmouse-driver-dkms')
+pkgname=('yeetmouse' 'yeetmouse-gui' 'yeetmouse-driver-dkms')
 pkgver=__VERSION__
 pkgrel=1
-pkgdesc="USB HID Boot Protocol mouse driver with acceleration."
+pkgdesc="USB HID input handler applying mouse acceleration"
 arch=('i686' 'x86_64')
 url="https://github.com/AndyFilter/YeetMouse"
 license=('GPL2')
-#makedepends=('python-setuptools')
+makedepends=('glfw')
 source=("__SRC__")
 sha256sums=('__HASH__')
 
-# Currently we only supply the driver
+package_yeetmouse() {
+  pkgdesc="Meta package for the full YeetMouse experience"
+  depends=('yeetmouse-gui' 'yeetmouse-driver-dkms')
+}
+
 package_yeetmouse-driver-dkms() {
-  pkgdesc="Kernel driver for YEETMOUSE (DKMS-variant)"
+  pkgdesc="Kernel driver for YeetMouse (DKMS-variant)"
   depends=('dkms')
+  conflicts=('leetmouse-driver-dkms')
   install=yeetmouse-driver-dkms.install
 
   cd "$pkgbase-$pkgver"
   echo $pkgbase-$pkgver
   make DESTDIR="$pkgdir" setup_dkms
+}
+
+package_yeetmouse-gui() {
+  pkgdesc="GUI to configure the YeetMouse driver"
+  depends=('yeetmouse-driver-dkms')
+
+  cd "$pkgbase-$pkgver"
+  echo $pkgbase-$pkgver
+  make DESTDIR="$pkgdir" GUI
+  
+  install -d                        "${pkgdir}/usr/bin/"
+  install -Dm755 gui/YeetMouseGui   "${pkgdir}/usr/bin/"
+  ln -s /usr/bin/YeetMouseGui       "${pkgdir}/usr/bin/yeetmousegui"
 }

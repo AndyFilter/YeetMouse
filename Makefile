@@ -87,8 +87,8 @@ remove_dkms:
 install_i_know_what_i_am_doing: all driver_install
 install: manual_install_msg ;
 
-package:
-	@echo -e "\n::\033[34m Building installable package\033[0m"
+pkgarch:
+	@echo -e "\n::\033[34m Building installable arch package\033[0m"
 	@echo "====================================================="
 	@./scripts/build_arch.sh
 	@mv ./pkg/build/yeetmouse*.zst .

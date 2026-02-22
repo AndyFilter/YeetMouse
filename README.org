@@ -27,21 +27,20 @@
    Keep in mind that the program needs to be *run with sudo privileges*.
    To run, simply use =sudo -E ./YeetMouseGui=
 
-** Arch/Manjaro
-   For Arch and Manjaro, a =PKGBUILD= has been written for seamless integration into pacman.
+** Arch
+   For Arch based systems, a =PKGBUILD= has been written for seamless integration into pacman.
 
    *Installation*
    #+begin_src sh
-   # Create the PKGBUILD, copy associated files and run makepkg
-   ./scripts/build_arch.sh
-   # Run pacman on the created package
+   make pkgarch
    sudo pacman -U pkg/build/yeetmouse*.zst
+   sudo modprobe yeetmouse
    #+end_src
-   All your mice should now be bound to this driver. They will also automatically bind to it after a reboot.
-   
+   All your mice should now be bound to this driver and the YeetMouseGui will be available on your system
+
    *Uninstallation*
    #+begin_src sh
-   sudo pacman -R yeetmouse-driver-dkms
+   sudo pacman -R yeetmouse yeetmouse-driver-dkms yeetmouse-gui
    #+end_src
    All your mice should now be bound to the generic usbhid driver again.
 

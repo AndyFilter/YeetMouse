@@ -5,6 +5,7 @@
 *.mod.o
 *.o
 *.kate-swp
+*.zst
 *.out
 .directory
 Module.symvers

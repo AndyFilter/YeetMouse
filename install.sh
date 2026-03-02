@@ -40,11 +40,6 @@ if [[ "$mode_number" ]]; then
 
 fi
 
-if ! grep -q MOTIVITY "$CONFIG_FILE"; then
-	# Add missing Motivity parameter
-	sudo sed -i -E '/^#define\s+MIDPOINT\s+/a #define MOTIVITY 1.5' "$CONFIG_FILE"
-fi
-
 # Install the driver and activate the dkms module
 sudo make setup_dkms
 sudo dkms install -m yeetmouse-driver -v 0.9.2 # Enter the version you determined from the Makefile earlier in here

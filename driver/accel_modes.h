@@ -14,6 +14,7 @@ struct ModesConstants {
     // General
     FP_LONG accel_sub_1;
     FP_LONG exp_sub_1;
+    FP_LONG current_func_at_0;
 
     // Synchronous (legacy)
     FP_LONG logMot;
@@ -51,7 +52,8 @@ struct ModesConstants {
     FP_LONG as_half_threshold;
 };
 
-extern FP_LONG g_Acceleration, g_Exponent, g_Midpoint, g_Motivity, g_RotationAngle, g_AngleSnap_Angle, g_AngleSnap_Threshold, g_LutData_x[], g_LutData_y[];
+extern FP_LONG g_Sensitivity, g_SensitivityY, g_OutputCap, g_InputCap, g_Offset, g_PreScale, g_Acceleration, g_Exponent,
+        g_Midpoint, g_Motivity, g_RotationAngle, g_AngleSnap_Angle, g_AngleSnap_Threshold, g_LutData_x[], g_LutData_y[];
 extern char g_AccelerationMode, g_UseSmoothing;
 extern unsigned long g_LutSize;
 extern struct ModesConstants modesConst;
@@ -59,6 +61,7 @@ static const FP_LONG FP64_PI =   C0NST_FP64_FromDouble(3.14159);
 static const FP_LONG FP64_PI_2 = C0NST_FP64_FromDouble(1.57079);
 static const FP_LONG FP64_PI_4 = C0NST_FP64_FromDouble(0.78539);
 static const FP_LONG FP64_0_1     = 429496736ll;
+static const FP_LONG FP64_0_01    = C0NST_FP64_FromDouble(0.001);
 static const FP_LONG FP64_0_5     = 2147483648ll;
 static const FP_LONG FP64_1       = 1ll << FP64_Shift;
 static const FP_LONG FP64_10      = 10ll << FP64_Shift;

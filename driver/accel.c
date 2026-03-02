@@ -10,6 +10,7 @@
 #include "FixedMath/Fixed64.h"
 #include "../shared_definitions.h"
 #include "accel_modes.h"
+#include "defaults.h"
 
 MODULE_AUTHOR("Christopher Williams <chilliams (at) gmail (dot) com>"); //Original idea of this module
 MODULE_AUTHOR("Klaus Zipfel <klaus (at) zipfel (dot) family>");         //Current maintainer
@@ -69,15 +70,14 @@ PARAM_UL(LutSize,       LUT_SIZE,           "LUT data array size");
 //PARAM_F(LutStride,      LUT_STRIDE,       "Distance between y values for the LUT");
 PARAM_ARR(LutDataBuf,   LUT_DATA,           "Data of the LUT stored in a human form"); // g_LutDataBuf should not be used!
 
+PARAM_ARR(_CustomCurveDataAggregate, CC_DATA_AGGREGATE, "Stores the Custom Curve data, SHOULD NOT BE USED ON THE DRIVER SIDE");
+
 PARAM_F(RotationAngle, ROTATION_ANGLE,      "Amount of clockwise rotation (in radians)");
 PARAM_F(AngleSnap_Threshold, ANGLE_SNAPPING_THRESHOLD,      "Rotation value at which angle snapping is triggered (in radians)");
 PARAM_F(AngleSnap_Angle, ANGLE_SNAPPING_ANGLE,      "Amount of clockwise rotation for angle snapping (in radians)");
 
 FP_LONG g_LutData_x[MAX_LUT_ARRAY_SIZE]; // Array to store the x-values of the LUT data
 FP_LONG g_LutData_y[MAX_LUT_ARRAY_SIZE]; // Array to store the y-values of the LUT data
-
-#define FP64_ONE 4294967296ll
-#define EXP_ARG_THRESHOLD 16ll
 
 // Converts given string to a unsigned long
 unsigned long atoul(const char *str) {
@@ -100,7 +100,10 @@ unsigned long atoul(const char *str) {
 #define PARAM_UPDATE_UL(param) (atoul(g_param_##param))
 
 // Aggregate values that don't change with speed to save on calculations done every irq
-struct ModesConstants modesConst = { .is_init = false, .C0 = 0, .r = 0, .auxiliar_accel = 0, .auxiliar_constant = 0, .accel_sub_1 = 0, .exp_sub_1 = 0, .sin_a = 0, .cos_a = 0, .as_cos = 0, .as_sin = 0, .as_half_threshold = 0 };
+struct ModesConstants modesConst = {
+    .is_init = false, .C0 = 0, .r = 0, .auxiliar_accel = 0, .auxiliar_constant = 0, .accel_sub_1 = 0, .exp_sub_1 = 0,
+    .sin_a = 0, .cos_a = 0, .as_cos = 0, .as_sin = 0, .as_half_threshold = 0, .current_func_at_0 = FP64_1
+};
 
 static ktime_t g_next_update = 0;
 INLINE void update_params(ktime_t now)
@@ -136,7 +139,7 @@ INLINE void update_params(ktime_t now)
     int i = 0;
     for(; i < g_LutSize*2 && *p; i++) {
         FP_LONG val;
-        p += FP64_FromString(p, &val) + 1; // + 1 to skip the ';'
+        p += FP64_FromString(p, &val) + 1; // + 1 to skip the ';' or ','
         // The format for the driver side is very strict tho, so don't edit it by hand pls.
         ((i % 2 == 0) ? g_LutData_x : g_LutData_y)[i/2] = val;
 
@@ -151,10 +154,10 @@ INLINE void update_params(ktime_t now)
         g_LutSize = 0;
 
     // Sanity check
-    if(g_LutSize <= 1 && g_AccelerationMode == AccelMode_Lut)
+    if(g_LutSize <= 1 && (g_AccelerationMode == AccelMode_Lut || g_AccelerationMode == AccelMode_CustomCurve))
         g_AccelerationMode = AccelMode_Current;
 
-    if (g_AccelerationMode == AccelMode_Lut &&
+    if ((g_AccelerationMode == AccelMode_Lut || g_AccelerationMode == AccelMode_CustomCurve) &&
         (g_LutData_x[g_LutSize-1] == g_LutData_x[g_LutSize-2] && g_LutData_y[g_LutSize-1] == g_LutData_y[g_LutSize-2]))
         g_AccelerationMode = AccelMode_Current;
 
@@ -207,31 +210,32 @@ int accelerate(int *x, int *y)
     // Editor node: I have no idea, what this line above really does, but commenting it out solves all my problems
     // with incorrect data. It seems that it tries to fix a problem that doesn't exist, or doesn't exist on my
     // specific setup (PC / System / Mice)
-    if(ms > FP64_100) ms = FP64_100;
+    if (ms > FP64_100) ms = FP64_100;
 
     //if(ms > 100) ms = 100;      //Original InterAccel has 200 here. RawAccel rounds to 100. So do we.
     last_ms = ms;
 
-    //Update acceleration parameters periodically
+    // Update acceleration parameters periodically
     update_params(now);
 
-    //Calculate velocity (one step before rate, which divides rate by the last frametime)
-    speed = FP64_Sqrt(FP64_Add(FP64_Mul(delta_x, delta_x), FP64_Mul(delta_y, delta_y)));
-
     // Apply Pre-Scale
-    if(g_PreScale != FP64_1)
-        speed = FP64_Mul(speed, g_PreScale);
+    if (g_PreScale != FP64_1) {
+        delta_x = FP64_Mul(delta_x, g_PreScale);
+        delta_y = FP64_Mul(delta_y, g_PreScale);
+    }
 
-    //Apply speedcap
-    if(g_InputCap > 0){
+    // Calculate velocity
+    speed = FP64_Sqrt(FP64_Add(FP64_Mul(delta_x, delta_x), FP64_Mul(delta_y, delta_y)));
+    speed = FP64_DivPrecise(speed, ms);
+
+    // Apply speedcap
+    if (g_InputCap > 0) {
         //if(speed >= g_InputCap) {
-        if(FP64_Sub(speed, g_InputCap) > 0) {
+        if (FP64_Sub(speed, g_InputCap) > 0) {
             speed = g_InputCap;
         }
     }
 
-    //Calculate rate from traveled overall distance and add possible rate offsets
-    speed = FP64_DivPrecise(speed, ms);
     speed = FP64_Sub(speed, g_Offset);
 
     // Apply Rotation before everything else to keep the precision
@@ -241,6 +245,7 @@ int accelerate(int *x, int *y)
         delta_x = new_delta_x;
     }
 
+    static_assert(AccelMode_Count == 10, "Wrong AccelMode count!");
     // Apply acceleration if movement is over offset
     if (speed > 0) {
         switch (g_AccelerationMode) {
@@ -273,12 +278,12 @@ int accelerate(int *x, int *y)
                 break;
         }
     } else {
-        speed = FP64_1;
+        speed = modesConst.current_func_at_0;
     }
 
     // Actually apply accelerated sensitivity, allow post-scaling and apply carry from previous round
     // Like RawAccel, sensitivity will be a final multiplier:
-    if (g_Sensitivity == g_SensitivityY) {
+    if (g_SensitivityY == FP64_1) {
         if(g_Sensitivity != FP64_1)
             speed = FP64_Mul(speed, g_Sensitivity);
 

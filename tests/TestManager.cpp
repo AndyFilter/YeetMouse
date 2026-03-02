@@ -4,12 +4,41 @@
 #include "driver/accel_modes.h"
 
 // "Private" values only visible to the accel_modes
-FP_LONG g_Acceleration = 0, g_Exponent = 0, g_Midpoint = 0, g_Motivity = 0, g_RotationAngle = 0, g_AngleSnap_Angle = 0,
-        g_AngleSnap_Threshold = 0, g_LutData_x[256], g_LutData_y[256];
+FP_LONG g_Sensitivity = FP64_1, g_SensitivityY = FP64_1, g_OutputCap = 0, g_InputCap = 0, g_Offset = 0, g_PreScale = FP64_1, g_Acceleration = 0, g_Exponent
+                = 0, g_Midpoint = 0, g_Motivity = 0, g_RotationAngle = 0, g_AngleSnap_Angle = 0, g_AngleSnap_Threshold =
+                0, g_LutData_x[256], g_LutData_y[256];
 char g_AccelerationMode = 0, g_UseSmoothing = 0;
 unsigned long g_LutSize = 0;
 ModesConstants modesConst;
 static CachedFunction function;
+
+// Ignores speedY (for now?)
+FP_LONG ApplyGlobalPostParameters(FP_LONG speed) {
+    FP_LONG speed_Y = FP64_1;
+    if (g_SensitivityY == FP64_1) {
+        if(g_Sensitivity != FP64_1)
+            speed = FP64_Mul(speed, g_Sensitivity);
+
+        // Apply Output Limit
+        if(g_OutputCap > 0)
+            speed = FP64_Min(g_OutputCap, speed);
+    } else {
+        speed = FP64_Mul(speed, g_Sensitivity);
+        speed_Y = FP64_Mul(speed, g_SensitivityY);
+
+        // Apply Output Limit
+        if(g_OutputCap > 0) {
+            speed = FP64_Min(g_OutputCap, speed);
+            speed_Y = FP64_Min(g_OutputCap, speed_Y);
+        }
+    }
+
+    return speed;
+}
+
+FP_LONG ApplyGlobalPreParameters(FP_LONG speed) {
+    return FP64_Mul(speed, g_PreScale);
+}
 
 // TestManager & TestManager::GetInstance() {
 //     static TestManager instance;
@@ -18,14 +47,14 @@ static CachedFunction function;
 
 void TestManager::Initialize() {
     function.params = new Parameters;
-    function.params->sens = 1;
-    function.params->sensY = 1;
+    function.params->sens = FP64_ToFloat(g_Sensitivity);
+    function.params->sensY = FP64_ToFloat(g_SensitivityY);
     function.params->accelMode = static_cast<AccelMode>(g_AccelerationMode);
-    function.params->preScale = 1;
+    function.params->preScale = FP64_ToFloat(g_PreScale);
     function.params->accel = FP64_ToFloat(g_Acceleration);
     function.params->exponent = FP64_ToFloat(g_Exponent);
     function.params->midpoint = FP64_ToFloat(g_Midpoint);
-    function.params->offset = 0;
+    function.params->offset = FP64_ToFloat(g_Offset);
     function.params->useSmoothing = g_UseSmoothing;
     function.params->rotation = FP64_ToFloat(g_RotationAngle);
     function.params->as_angle = FP64_ToFloat(g_AngleSnap_Angle);
@@ -40,7 +69,7 @@ FP_LONG TestManager::AccelLinear(FP_LONG x, FP_LONG acceleration, FP_LONG midpoi
     SetUseSmoothing(gain);
     SetMidpoint(midpoint);
     UpdateModesConstants();
-    return accel_linear(x);
+    return ApplyGlobalPostParameters(accel_linear(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelPower(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint, FP_LONG motivity,
@@ -51,7 +80,7 @@ FP_LONG TestManager::AccelPower(FP_LONG x, FP_LONG acceleration, FP_LONG exponen
     SetMotivity(motivity);
     SetUseSmoothing(gain);
     UpdateModesConstants();
-    return accel_power(x);
+    return ApplyGlobalPostParameters(accel_power(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelClassic(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint, bool gain) {
@@ -60,7 +89,7 @@ FP_LONG TestManager::AccelClassic(FP_LONG x, FP_LONG acceleration, FP_LONG expon
     SetMidpoint(midpoint);
     SetUseSmoothing(gain);
     UpdateModesConstants();
-    return accel_classic(x);
+    return ApplyGlobalPostParameters(accel_classic(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelMotivity(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint) {
@@ -68,7 +97,7 @@ FP_LONG TestManager::AccelMotivity(FP_LONG x, FP_LONG acceleration, FP_LONG expo
     SetExponent(exponent);
     SetMidpoint(midpoint);
     UpdateModesConstants();
-    return accel_motivity(x);
+    return ApplyGlobalPostParameters(accel_motivity(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelSynchronous(FP_LONG x, FP_LONG sync_speed, FP_LONG gamma, FP_LONG smoothness,
@@ -79,7 +108,7 @@ FP_LONG TestManager::AccelSynchronous(FP_LONG x, FP_LONG sync_speed, FP_LONG gam
     SetMotivity(motivity);
     SetUseSmoothing(gain);
     UpdateModesConstants();
-    return accel_motivity(x);
+    return ApplyGlobalPostParameters(accel_synchronous(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelJump(FP_LONG x, FP_LONG acceleration, FP_LONG exponent, FP_LONG midpoint, bool gain) {
@@ -88,7 +117,7 @@ FP_LONG TestManager::AccelJump(FP_LONG x, FP_LONG acceleration, FP_LONG exponent
     SetMidpoint(midpoint);
     SetUseSmoothing(gain);
     UpdateModesConstants();
-    return accel_jump(x);
+    return ApplyGlobalPostParameters(accel_jump(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelLUT(FP_LONG x, FP_LONG values_x[], FP_LONG values_y[], unsigned long count) {
@@ -96,11 +125,11 @@ FP_LONG TestManager::AccelLUT(FP_LONG x, FP_LONG values_x[], FP_LONG values_y[],
     SetLutData_x(values_x, count);
     SetLutData_y(values_y, count);
     UpdateModesConstants();
-    return accel_lut(x);
+    return ApplyGlobalPostParameters(accel_lut(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelLUT(FP_LONG x) {
-    return accel_lut(x);
+    return ApplyGlobalPostParameters(accel_lut(ApplyGlobalPreParameters(x)));
 }
 
 FP_LONG TestManager::AccelLinear(float x, float acceleration, float midpoint, bool gain) {
@@ -152,31 +181,31 @@ FP_LONG TestManager::AccelLUT(float x) {
 }
 
 FP_LONG TestManager::AccelLinear(float x) {
-    return accel_linear(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_linear(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelPower(float x) {
-    return accel_power(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_power(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelClassic(float x) {
-    return accel_classic(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_classic(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelMotivity(float x) {
-    return accel_motivity(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_motivity(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelSynchronous(float x) {
-    return accel_synchronous(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_synchronous(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelNatural(float x) {
-    return accel_natural(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_natural(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 FP_LONG TestManager::AccelJump(float x) {
-    return accel_jump(FP64_FromFloat(x));
+    return ApplyGlobalPostParameters(accel_jump(ApplyGlobalPreParameters(FP64_FromFloat(x))));
 }
 
 ModesConstants &TestManager::GetModesConstants() {
@@ -244,6 +273,36 @@ void TestManager::SetMotivity(FP_LONG motivity) {
     function.params->motivity = FP64_ToFloat(g_Motivity);
 }
 
+void TestManager::SetSensitivity(FP_LONG sensitivity) {
+    g_Sensitivity = sensitivity;
+    function.params->sens = FP64_ToFloat(sensitivity);
+}
+
+void TestManager::SetSensitivityY(FP_LONG sensitivityY) {
+    g_SensitivityY = sensitivityY;
+    function.params->sensY = FP64_ToFloat(sensitivityY);
+}
+
+void TestManager::SetOutCap(FP_LONG outCap) {
+    g_OutputCap = outCap;
+    function.params->outCap = FP64_ToFloat(outCap);
+}
+
+void TestManager::SetInCap(FP_LONG inCap) {
+    g_InputCap = inCap;
+    function.params->inCap = FP64_ToFloat(inCap);
+}
+
+void TestManager::SetOffset(FP_LONG offset) {
+    g_Offset = offset;
+    function.params->offset = FP64_ToFloat(offset);
+}
+
+void TestManager::SetPreScale(FP_LONG preScale) {
+    g_PreScale = preScale;
+    function.params->preScale = FP64_ToFloat(preScale);
+}
+
 void TestManager::SetRotationAngle(FP_LONG rotationAngle) {
     g_RotationAngle = rotationAngle;
     function.params->rotation = FP64_ToFloat(g_RotationAngle);
@@ -307,6 +366,30 @@ void TestManager::SetMidpoint(float midpoint) {
 
 void TestManager::SetMotivity(float motivity) {
     SetMotivity(FP64_FromFloat(motivity));
+}
+
+void TestManager::SetSensitivity(float sensitivity) {
+    SetSensitivity(FP64_FromFloat(sensitivity));
+}
+
+void TestManager::SetSensitivityY(float sensitivityY) {
+    SetSensitivityY(FP64_FromFloat(sensitivityY));
+}
+
+void TestManager::SetOutCap(float outCap) {
+    SetOutCap(FP64_FromFloat(outCap));
+}
+
+void TestManager::SetInCap(float inCap) {
+    SetInCap(FP64_FromFloat(inCap));
+}
+
+void TestManager::SetOffset(float offset) {
+    SetOffset(FP64_FromFloat(offset));
+}
+
+void TestManager::SetPreScale(float preScale) {
+    SetPreScale(FP64_FromFloat(preScale));
 }
 
 void TestManager::SetRotationAngle(float rotationAngle) {

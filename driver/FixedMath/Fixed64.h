@@ -1547,8 +1547,8 @@ static int FP64_FromString(const char *buf, FP_LONG *val) {
 
     FP_LONG value = intpart << FP64_Shift;
 
-    /* Decode the decimal part */
-    if (*buf == '.' || *buf == ',') {
+    /* Decode the decimal part (dot as the decimal separator) */
+    if (*buf == '.' && *buf != ',' && *buf != ';') {
         buf++;
 
         uint64_t fracpart = 0;
@@ -1563,7 +1563,7 @@ static int FP64_FromString(const char *buf, FP_LONG *val) {
     }
 
     /* Verify that there is no garbage left over */
-    while (*buf != '\0' && *buf != ';') {
+    while (*buf != '\0' && *buf != ';' && *buf != ',') {
         if (!_isdigit((unsigned char) *buf) && !_isspace((unsigned char) *buf))
             return 0;
 

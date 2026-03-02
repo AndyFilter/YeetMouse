@@ -137,11 +137,11 @@ let
           param = "Midpoint";
         }
                 {
-          value = toString params.power.useSmoothing;
+          value = toString params.useSmoothing;
           param = "useSmoothing";
         }
         {
-          value = toString params.power.smoothCap;
+          value = toString params.smoothCap;
           param = "Motivity";
         }
       ];
@@ -186,19 +186,19 @@ let
           param = "AccelerationMode";
         }
         {
-          value = toString params.classic.acceleration;
+          value = toString params.acceleration;
           param = "Acceleration";
         }
         {
-          value = toString params.classic.exponent;
+          value = toString params.exponent;
           param = "Exponent";
         }
         {
-          value = toString params.classic.useSmoothing;
+          value = toString params.useSmoothing;
           param = "useSmoothing";
         }
         {
-          value = toString params.classic.smoothCap;
+          value = toString params.smoothCap;
           param = "Midpoint";
         }
       ];
@@ -451,11 +451,11 @@ let
           param = "AccelerationMode";
         }
         {
-          value = concatStringsSep ";" params.lut.data;
+          value = concatStringsSep ";" params.data;
           param = "LutDataBuf";
         }
         {
-          value = length params.lut.data;
+          value = length params.data;
           param = "LutSize";
         }
       ];

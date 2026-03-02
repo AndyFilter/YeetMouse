@@ -10,6 +10,8 @@
 #include "../shared_definitions.h"
 
 #define MAX_LUT_ARRAY_SIZE 128  // THIS NEEDS TO BE THE SAME AS IN THE DRIVER CODE
+#define MAX_LUT_BUF_LEN 4096
+#define LUT_EXPORT_PRECISION 5 // Decimal points precision for exporting a LUT
 
 #define DEG2RAD (M_PI / 180.0)
 
@@ -35,7 +37,7 @@ namespace DriverHelper {
     /// Returns the number of parsed values
     size_t ParseDriverLutData(const char *user_data, double *out_x, double *out_y);
 
-    std::string EncodeLutData(double *data_x, double *data_y, size_t size);
+    std::string EncodeLutData(double *data_x, double *data_y, size_t size, bool strict_format = true);
 } // DriverHelper
 
 inline std::string AccelMode2String(AccelMode mode) {
@@ -60,6 +62,8 @@ inline std::string AccelMode2String(AccelMode mode) {
             return "Jump";
         case AccelMode_Lut:
             return "LUT";
+        case AccelMode_CustomCurve:
+            return "Custom Curve";
         default:
             return "Unknown";
     }
@@ -87,6 +91,8 @@ inline std::string AccelMode2EnumString(AccelMode mode) {
             return "AccelMode_Jump";
         case AccelMode_Lut:
             return "AccelMode_Lut";
+        case AccelMode_CustomCurve:
+            return "AccelMode_CustomCurve";
         default:
             return "AccelMode_Current";
     }
@@ -114,6 +120,8 @@ inline std::string AccelMode2String_CAPS(AccelMode mode) {
             return "JUMP";
         case AccelMode_Lut:
             return "LUT";
+        case AccelMode_CustomCurve:
+            return "CUSTOM CURVE";
         default:
             return "Unknown";
     }

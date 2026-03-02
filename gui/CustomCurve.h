@@ -4,15 +4,18 @@
 #include "External/ImGui/imgui.h"
 #include <deque>
 #include <array>
+#include <string>
 #include <vector>
 
 #include "External/ImGui/implot.h"
 
 #define CURVE_POINTS_MARGIN 0.2f
 #define BEZIER_FRAG_SEGMENTS 50
+#define CURVE_EXPORT_PRECISION 3 // Decimal points precision for exporting Custom Curves
 
 struct Ex_Vec2 : ImVec2 {
     bool is_locked = false;
+    bool use_polar_coordinates = false;
 
     Ex_Vec2(float x, float y) : ImVec2(x, y) {}
     Ex_Vec2(ImVec2 vec) : ImVec2(vec) {}
@@ -27,11 +30,17 @@ public:
 
     CustomCurve() = default;
 
-    // Constraints the curve to be aligned with "mathematical" definition of a function x -> f(x)
+    // Constraints the curve to be aligned with the "mathematical" definition of a function x -> f(x)
     void ApplyCurveConstraints();
 
     // Tries to optimally distribute the points for the exported LUT
     int ExportCurveToLUT(double *LUT_data_x, double *LUT_data_y) const;
+
+    // Exports the custom curve points raw (not as a LUT)
+    std::string ExportCustomCurve() const;
+
+    // Exports the custom curve points
+    bool ImportCustomCurve(const std::string& data);
 
     // Makes first and second derivative continuous
     void SmoothBezier();

@@ -53,6 +53,12 @@ public:
     static void SetExponent(FP_LONG exponent);
     static void SetMidpoint(FP_LONG midpoint);
     static void SetMotivity(FP_LONG motivity);
+    static void SetSensitivity(FP_LONG sensitivity);
+    static void SetSensitivityY(FP_LONG sensitivityY);
+    static void SetOutCap(FP_LONG outCap);
+    static void SetInCap(FP_LONG inCap);
+    static void SetOffset(FP_LONG offset);
+    static void SetPreScale(FP_LONG preScale);
     static void SetRotationAngle(FP_LONG rotationAngle);
     static void SetAngleSnap_Angle(FP_LONG angleSnap_Angle);
     static void SetAngleSnap_Threshold(FP_LONG angleSnap_Threshold);
@@ -66,6 +72,12 @@ public:
     static void SetExponent(float exponent);
     static void SetMidpoint(float midpoint);
     static void SetMotivity(float motivity);
+    static void SetSensitivity(float sensitivity);
+    static void SetSensitivityY(float sensitivityY);
+    static void SetOutCap(float outCap);
+    static void SetInCap(float inCap);
+    static void SetOffset(float offset);
+    static void SetPreScale(float preScale);
     static void SetRotationAngle(float rotationAngle);
     static void SetAngleSnap_Angle(float angleSnap_Angle);
     static void SetAngleSnap_Threshold(float angleSnap_Threshold);

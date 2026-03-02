@@ -2,6 +2,9 @@
 
 #include "FunctionHelper.h"
 
+#define EXP_ARG_THRESHOLD 16ll
+#define FUNC_EVAL_START_VAL 0.01f
+
 CachedFunction::CachedFunction(float xStride, Parameters *params)
         : x_stride(xStride), params(params) { }
 
@@ -109,7 +112,7 @@ float CachedFunction::SynchronousGainEval(float x) const {
     return y;
 }
 
-float CachedFunction::EvalFuncAt(float x) {
+float CachedFunction::EvalFuncAt(float x) const {
     static_assert(AccelMode_Count == 10);
 
     x *= params->preScale;
@@ -246,14 +249,32 @@ float CachedFunction::EvalFuncAt(float x) {
         }
         case AccelMode_Jump: // Jump
         {
+            if (x <= 0) {
+                val = 1;
+                break;
+            }
+
+            //
             // Might cause issues with high exponent's argument values
-            double exp_param = smoothness * (params->midpoint - x);
-            double D = std::exp(exp_param);
+            double exp_param = smoothness * (params->midpoint - x); // smooth_rate * (step.x - x)
+            double D = std::exp(exp_param); // exp()
             if (params->useSmoothing) {
-                double integral = (params->accel - 1) * (x + (log(1 + D) / smoothness));
-                val = ((integral - C0) / x) + 1;
+                if (smoothness != 0) {
+                    double log_val = exp_param > EXP_ARG_THRESHOLD ? exp_param : log(1 + D);
+                    double integral = (params->accel - 1) * (x + (log_val / smoothness)); // (step.y * (x + log(1 + ()) / smooth_rate)
+                    val = 1 + (integral - C0) / x; // 1 + (() + C) / x;
+                }
+                else if (x <= params->midpoint)
+                    val = 1;
+                else
+                    val = 1 + (params->accel - 1) * (x - params->midpoint) / x;
             } else {
-                val = (params->accel - 1) / (1 + D) + 1;
+                if (smoothness != 0)
+                    val = (params->accel - 1) / (1 + D) + 1;
+                else if (x <= params->midpoint)
+                    val = 1;
+                else
+                    val = (params->accel - 1) + 1;
             }
             break;
         }
@@ -349,11 +370,21 @@ void CachedFunction::PreCacheConstants() {
         }
         case AccelMode_Jump: {
             //printf("exp = %.2f, mid = %.2f\n", params->exponent, params->midpoint);
-            smoothness = (2 * M_PI) / (params->exponent * params->midpoint);
+            double rate_inverse = params->exponent * params->midpoint;
+            if (rate_inverse < 1.0)
+                smoothness = 0;
+            else
+                smoothness = (2 * M_PI) / rate_inverse;
+
+            double r_times_m = smoothness * params->midpoint;
             //printf("sm = %.2f\n", smoothness);
-            //C0 = params->accel * params->midpoint; // Fast approx
-            C0 = (params->accel - 1) * (smoothness * params->midpoint + std::log(
-                                            1 + std::exp(-smoothness * params->midpoint))) / smoothness;
+            //      step.y *                (log(        1 + exp(       smooth_rate * step.x))          / smooth_rate);
+            if (smoothness == 0)
+                C0 = 1;
+            else if (r_times_m < EXP_ARG_THRESHOLD)
+                C0 = (params->accel - 1) * (std::log(1 + std::exp(r_times_m))) / smoothness;
+            else
+                C0 = (params->accel - 1) * r_times_m / smoothness;
             break;
         }
         case AccelMode_Lut: {
@@ -371,23 +402,30 @@ void CachedFunction::PreCacheConstants() {
 void CachedFunction::PreCacheFunc() {
     PreCacheConstants();
 
-    float x = -params->offset + 0.01;
+    float x = -params->offset + FUNC_EVAL_START_VAL;
     for (int i = 0; i < PLOT_POINTS; i++) {
         if (x < 0) {
             // skip offset
-            values[i] = params->sens;
-            values_y[i] = params->sensY;
+            values[i] = EvalFuncAt(FUNC_EVAL_START_VAL);
+            values_y[i] = params->sensY * values[i];
             x += x_stride;
             continue;
         }
         float val = EvalFuncAt(x);
         values[i] = val; // fabsf(params->outCap) > 0.01 ? fminf(val, params->outCap) : val;
         if (params->use_anisotropy)
-            values_y[i] = val / params->sens * params->sensY;
+            values_y[i] = val * params->sensY;
         x += x_stride;
     }
 
     ValidateSettings();
+}
+
+float CachedFunction::EvaluateFuncWithGlobalParameters(float speed) const {
+    if (float x = speed - params->offset + FUNC_EVAL_START_VAL; x <= 0)
+        return EvalFuncAt(FUNC_EVAL_START_VAL);
+    else
+        return EvalFuncAt(x);
 }
 
 
@@ -395,29 +433,49 @@ bool CachedFunction::ValidateSettings() {
     isValid = true;
 
     for (int i = 0; i < PLOT_POINTS; i++) {
-        if (std::isnan(values[i]) || std::isnan(values_y[i]) || std::isinf(values[i]) || std::isinf(values_y[i]) ||
-            values[i] > 1e5 || values_y[i] > 1e5) {
+        if (std::isnan(values[i]) || std::isinf(values[i]) || values[i] > 1e5 || (
+                params->use_anisotropy && (std::isnan(values_y[i]) || std::isinf(values_y[i]) || values_y[i] > 1e5))) {
             isValid = false;
             return isValid;
         }
     }
 
-    if (params->exponent <= 0)
+    if (params->exponent <= 0 && params->accelMode != AccelMode_Jump)
         isValid = false;
 
-    if (params->accel < 0 || (params->accelMode != AccelMode_Linear && params->accel < 0))
+    if (params->accel < 0 || (params->accelMode != AccelMode_Linear && params->accel <= 0))
         isValid = false;
 
     if (params->midpoint < 0)
         isValid = false;
 
-    if (params->accelMode == AccelMode_Lut) {
-        for (int i = 0; i < MAX_LUT_ARRAY_SIZE; i++) {
+    if (params->accelMode == AccelMode_Lut || params->accelMode == AccelMode_CustomCurve) {
+        if (params->LUT_size <= 1) {
+            printf("LUT size is not valid!\n");
+            isValid = false;
+            return isValid;
+        }
+        for (int i = 0; i < params->LUT_size; i++) {
             if (std::isnan(params->LUT_data_x[i]) || std::isnan(params->LUT_data_y[i])) {
+                printf("LUT data is not valid!\n");
                 isValid = false;
                 return isValid;
             }
         }
+        // Check if is sorted
+        for (int i = 1; i < params->LUT_size; i++) {
+            if (params->LUT_data_x[i-1] > params->LUT_data_x[i]) {
+                printf("LUT is not sorted!\n");
+                isValid = false;
+                return isValid;
+            }
+        }
+    }
+
+    if (params->accelMode == AccelMode_CustomCurve) {
+        isValid = params->customCurve.points.size() >= 2;
+        if (!isValid)
+            return isValid;
     }
 
     if (params->accelMode == AccelMode_Classic) {

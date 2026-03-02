@@ -177,6 +177,87 @@ int CustomCurve::ExportCurveToLUT(double *LUT_data_x, double *LUT_data_y) const 
     return LUT_size;
 }
 
+// ctrl_p -> control_point
+// Format: point[i].x;point[i].y;ctrl_p[i][0].x,ctrl_p[i][0].y;ctrl_p[i][1].x;ctrl_p[i][1].y;point[i+1].x;point[i+1].y;ctrl_p[i][0].x;ctrl_p[i][0].y;ctrl_p[i][1].x;ctrl_p[i][1].y;point[i+1].x.y;...point[n-1].x;point[n-1];
+std::string CustomCurve::ExportCustomCurve() const {
+    std::stringstream out_stream;
+
+    if (points.size() < 2)
+        return "";
+
+    out_stream << std::fixed << std::setprecision(CURVE_EXPORT_PRECISION);
+
+    try {
+        for (int i = 0; i < points.size(); i++) {
+            out_stream << points[i].x << ";" << points[i].y << ";";
+
+            // Print control points
+            if (i < points.size() - 1) {
+                for (auto & cp : control_points[i]) {
+                    out_stream << cp.x << ";" << cp.y << ";";
+                }
+                out_stream.seekp(-1, std::ios_base::cur); // remove the last comma
+                out_stream << ";";
+            }
+        }
+    }
+    catch (std::exception& exception) {
+        fprintf(stderr, "Error while exporting curve: %s\n", exception.what());
+        return "";
+    }
+
+    if (out_stream.tellp() >= MAX_LUT_BUF_LEN)
+        return "";
+
+    return out_stream.str();
+}
+
+// Same format as the function above (CustomCurve::ExportCustomCurve)
+bool CustomCurve::ImportCustomCurve(const std::string& data) {
+    std::stringstream ss(data);
+    points.clear();
+    control_points.clear();
+    size_t idx = 0;
+
+    try {
+        float p_x = 0, p_y = 0;
+        double p = 0;
+        while (idx < MAX_LUT_ARRAY_SIZE && ss >> p) {
+            if (idx % 2 == 0)
+                p_x = p;
+            else {
+                p_y = p;
+                if (idx % 6 == 1) {
+                    points.emplace_back(p_x, p_y);
+                }
+                else {
+                    if (idx % 6 == 3)
+                        control_points.emplace_back();
+                    auto j = idx % 6 - 2;
+                    control_points.back()[j / 2] = {p_x, p_y};
+                }
+            }
+
+
+            char nextC = ss.peek();
+            if (nextC == ';' || nextC == ',')
+                ss.ignore();
+
+            idx++;
+        }
+    }
+    catch (std::exception& exception) {
+        return false;
+    }
+
+    // 1 element is not enough for a linear interpolation
+    if (idx <= 2 || idx % 6 + 2 != 0) {
+        return false;
+    }
+
+    return true;
+}
+
 // https://www.codeproject.com/Articles/31859/Draw-a-Smooth-Curve-through-a-Set-of-2D-Points-wit
 void CustomCurve::SmoothBezier() {
     //bezier_control_points.clear();

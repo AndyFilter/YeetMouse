@@ -5,7 +5,8 @@
 #include "DriverHelper.h"
 
 #define PLOT_POINTS (512)
-#define PLOT_X_RANGE (150)
+#define PLOT_X_DEFAULT_RANGE 80
+inline float PLOT_X_RANGE (PLOT_X_DEFAULT_RANGE);
 
 #define LERP(a,b,x)     (((b) - (a)) * (x) + (a))
 
@@ -23,19 +24,21 @@ public:
     CachedFunction() {
     };
 
-    float EvalFuncAt(float x);
+    float EvalFuncAt(float x) const;
 
     void PreCacheConstants();
 
     void PreCacheFunc(); // Also validates settings
+
+    float EvaluateFuncWithGlobalParameters(float speed) const;
 
     // Result also saved into 'bool isValid'
     bool ValidateSettings();
 
 private:
     // Constant parameters for Jump
-    float smoothness = 0;
-    float C0 = 0;
+    double smoothness = 0;
+    double C0 = 0;
 
     // Power
     float offset_x = 0;

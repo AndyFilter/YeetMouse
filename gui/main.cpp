@@ -1130,7 +1130,7 @@ void ResetParameters(void) {
         }
 
         if (mode == AccelMode_Linear)
-            params[mode].accel = fminf(0.1, params[mode].accel);
+            params[mode].accel = fminf(1.0, params[mode].accel);
 
         if (mode == AccelMode_Classic)
             params[mode].exponent = fmaxf(fminf(params[mode].exponent, 5), 2.1);

@@ -2,7 +2,6 @@
 
 #include "accel.h"
 #include "util.h"
-#include "config.h"
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/time.h>
@@ -21,35 +20,42 @@ MODULE_AUTHOR("Maciej Grzęda <gmaciejg525 (at) gmail (dot) com>");      // Curr
 #define _s(x) #x
 #define s(x) _s(x)
 
-//Convenient helper for float based parameters, which are passed via a string to this module (must be individually parsed via atof() - available in util.c)
-#define PARAM_F(param, default, desc)                           \
-    FP_LONG g_##param = C0NST_FP64_FromDouble(default);                     \
-    char* g_param_##param = s(default);                  \
-    module_param_named(param, g_param_##param, charp, 0644);    \
+// Convenient helper for float based parameters
+#define PARAM_F(param, default, desc)                                   \
+    FP_LONG g_##param = C0NST_FP64_FromDouble(default);                 \
+    char* g_param_##param = s(default);                                 \
+    module_param_named(param, g_param_##param, charp, 0660);            \
     MODULE_PARM_DESC(param, desc);
 
-#define PARAM(param, default, desc)                             \
-    char g_##param = default;                            \
-    module_param_named(param, g_##param, byte, 0644);           \
+#define PARAM(param, default, desc)                                     \
+    char g_##param = default;                                           \
+    module_param_named(param, g_##param, byte, 0660);                   \
+    MODULE_PARM_DESC(param, desc);
+
+#define PARAM_BYTE(param, default, desc)                                \
+    char g_##param = (char)default;                                     \
+    char* g_param_##param = s(default);                                 \
+    module_param_named(param, g_param_##param, charp, 0660);            \
     MODULE_PARM_DESC(param, desc);
 
 #define PARAM_ARR(param, default, desc) \
-    char g_param_##param[MAX_LUT_BUF_LEN] = s(default);                            \
-    module_param_string(param, g_param_##param, MAX_LUT_BUF_LEN, 0644);           \
+    char g_param_##param[MAX_LUT_BUF_LEN] = s(default);                 \
+    module_param_string(param, g_param_##param, MAX_LUT_BUF_LEN, 0660); \
     MODULE_PARM_DESC(param, desc);
 
-#define PARAM_UL(param, default, desc)                           \
-    unsigned long g_##param = (unsigned long)default;                     \
-    char* g_param_##param = s(default);                            \
-    module_param_named(param, g_##param, ulong, 0644);           \
+#define PARAM_UL(param, default, desc)                                  \
+    unsigned long g_##param = (unsigned long)default;                   \
+    char* g_param_##param = s(default);                                 \
+    module_param_named(param, g_param_##param, charp, 0660);            \
     MODULE_PARM_DESC(param, desc);
 
 // ########## Kernel module parameters
 
 // Simple module parameters (instant update)
-//PARAM(no_bind,          0,                  "This will disable binding to this driver via 'yeetmouse_bind' by udev.");
-PARAM(update,           1,                  "Triggers an update of the acceleration parameters below");
-PARAM(AccelerationMode, ACCELERATION_MODE,  "Sets the algorithm to be used for acceleration");
+PARAM(update,             1,                  "Triggers an update of the acceleration parameters below");
+
+// Triggered update (same as Acceleration parameters)
+PARAM_BYTE(AccelerationMode, ACCELERATION_MODE, "Sets the algorithm to be used for acceleration");
 
 // Acceleration parameters (type pchar. Converted to float via "update_params" triggered by /sys/module/yeetmouse/parameters/update)
 PARAM_F(InputCap,       INPUT_CAP,          "Limit the maximum pointer speed before applying acceleration.");
@@ -67,7 +73,6 @@ PARAM  (UseSmoothing,   USE_SMOOTHING,      "Whether to smooth out functions (do
 //PARAM_F(ScrollsPerTick, SCROLLS_PER_TICK,   "Amount of lines to scroll per scroll-wheel tick.");
 
 PARAM_UL(LutSize,       LUT_SIZE,           "LUT data array size");
-//PARAM_F(LutStride,      LUT_STRIDE,       "Distance between y values for the LUT");
 PARAM_ARR(LutDataBuf,   LUT_DATA,           "Data of the LUT stored in a human form"); // g_LutDataBuf should not be used!
 
 PARAM_ARR(_CustomCurveDataAggregate, CC_DATA_AGGREGATE, "Stores the Custom Curve data, SHOULD NOT BE USED ON THE DRIVER SIDE");
@@ -121,7 +126,6 @@ INLINE void update_params(ktime_t now)
     PARAM_UPDATE(Acceleration);
     PARAM_UPDATE(OutputCap);
     PARAM_UPDATE(Offset);
-    //PARAM_UPDATE(ScrollsPerTick);
     PARAM_UPDATE(Exponent);
     PARAM_UPDATE(Midpoint);
     PARAM_UPDATE(PreScale);
@@ -129,8 +133,8 @@ INLINE void update_params(ktime_t now)
     PARAM_UPDATE(RotationAngle);
     PARAM_UPDATE(AngleSnap_Threshold);
     PARAM_UPDATE(AngleSnap_Angle);
-    PARAM_UPDATE_UL(LutSize);
-    //PARAM_UPDATE(LutStride);
+    g_LutSize = PARAM_UPDATE_UL(LutSize);
+    g_AccelerationMode = PARAM_UPDATE_UL(AccelerationMode);
     if(g_LutSize > MAX_LUT_ARRAY_SIZE)
         g_LutSize = MAX_LUT_ARRAY_SIZE;
     // LutDataBuf get auto updated, we don't need to do anything, just extract the data

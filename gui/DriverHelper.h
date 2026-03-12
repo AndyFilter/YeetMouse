@@ -9,11 +9,15 @@
 #include "CustomCurve.h"
 #include "../shared_definitions.h"
 
+#define YEETMOUSE_PARAMS_DIR "/sys/module/yeetmouse/parameters/"
+
 #define MAX_LUT_ARRAY_SIZE 128  // THIS NEEDS TO BE THE SAME AS IN THE DRIVER CODE
 #define MAX_LUT_BUF_LEN 4096
 #define LUT_EXPORT_PRECISION 5 // Decimal points precision for exporting a LUT
 
 #define DEG2RAD (M_PI / 180.0)
+
+struct Parameters;
 
 namespace DriverHelper {
     bool GetParameterF(const std::string &param_name, float &value);
@@ -26,6 +30,8 @@ namespace DriverHelper {
 
     bool SaveParameters();
 
+    bool SavePersistentParameters();
+
     bool ValidateDirectory();
 
     /// Converts the ugly FP64 representation of user parameters to nice floating point values
@@ -36,6 +42,9 @@ namespace DriverHelper {
 
     /// Returns the number of parsed values
     size_t ParseDriverLutData(const char *user_data, double *out_x, double *out_y);
+
+    /// Reads all driver parameters
+    bool ParseAllParameters(Parameters& params, char *lutUserData);
 
     std::string EncodeLutData(double *data_x, double *data_y, size_t size, bool strict_format = true);
 } // DriverHelper
@@ -160,8 +169,6 @@ inline AccelMode AccelMode_From_String(std::string mode_text) {
 inline AccelMode AccelMode_From_EnumString(const std::string &mode_text) {
     static_assert(AccelMode_Count == 10);
 
-    if (mode_text == "AccelMode_Current")
-        return AccelMode_Current;
     if (mode_text == "AccelMode_Linear")
         return AccelMode_Linear;
     if (mode_text == "AccelMode_Power")
@@ -180,6 +187,8 @@ inline AccelMode AccelMode_From_EnumString(const std::string &mode_text) {
         return AccelMode_Lut;
     if (mode_text == "AccelMode_CustomCurve")
         return AccelMode_CustomCurve;
+
+    return AccelMode_Current;
 }
 
 struct Parameters {
@@ -200,11 +209,11 @@ struct Parameters {
     float asThreshold = 0; // Stored in degrees, converted to radians when writing out
     float asAngle = 0; // Stored in degrees, converted to radians when writing out
 
-    double lutDataX[MAX_LUT_ARRAY_SIZE];
-    double lutDataY[MAX_LUT_ARRAY_SIZE];
+    double lutDataX[MAX_LUT_ARRAY_SIZE]{};
+    double lutDataY[MAX_LUT_ARRAY_SIZE]{};
     int lutSize = 0;
 
-    CustomCurve customCurve{};
+    CustomCurve customCurve;
 
     Parameters() = default;
 
@@ -214,7 +223,7 @@ struct Parameters {
     //Parameters(float sens, float sensCap, float speedCap, float offset, float accel, float exponent, float midpoint,
     //           float scrollAccel, int accelMode);
 
-    bool SaveAll();
+    bool SaveAll(bool auto_update = true);
 };
 
 #endif //YEETMOUSE_DRIVERHELPER_H

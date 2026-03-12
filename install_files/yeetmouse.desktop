@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=YeetMouse
+Exec=/usr/bin/yeetmouse
+Type=Application
+Icon=/usr/share/icons/hicolor/256x256/apps/yeetmouse.png
+Categories=Settings;

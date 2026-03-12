@@ -39,5 +39,5 @@ package_yeetmouse-gui() {
   
   install -d                        "${pkgdir}/usr/bin/"
   install -Dm755 gui/YeetMouseGui   "${pkgdir}/usr/bin/"
-  ln -s /usr/bin/YeetMouseGui       "${pkgdir}/usr/bin/yeetmousegui"
+  ln -s /usr/bin/YeetMouseGui       "${pkgdir}/usr/bin/yeetmouse"
 }

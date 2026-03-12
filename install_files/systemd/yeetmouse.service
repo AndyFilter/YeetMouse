@@ -1,0 +1,15 @@
+[Unit]
+Description=Apply YeetMouse configuration
+After=systemd-modules-load.service
+Wants=systemd-modules-load.service
+ConditionPathExists=/etc/yeetmouse.conf
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 50); do [ -e /sys/module/yeetmouse/parameters/update ] && exit 0; sleep 0.1; done; echo "YeetMouse parameters did not appear in time"; exit 1'
+ExecStartPre=/bin/sh -c 'chown root:yeetmouse /sys/module/yeetmouse/parameters/*'
+ExecStart=/usr/bin/yeetmousectl apply /etc/yeetmouse.conf
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

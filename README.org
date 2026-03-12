@@ -7,25 +7,96 @@
    [[media/YeetMouseGithub.gif]]
 
 * Installation & Uninstallation
-** Preparation & Configuration
-   + Clone this repository, find the settings you're most comfortable with, using GUI, change the defines in the config.h (More on this in the [[https://github.com/AndyFilter/YeetMouse?tab=readme-ov-file#settings-are-not-preserved-between-reboots][FAQ]] section about persistent settings).
-   + Make sure, you have the required toolchains (e.g. =base-devel= on Arch or =build-essentials= on Debian) installed as well as the =linux-headers= for your installed kernel.
+
+** Preparation
+   + Make sure you have the required build tools (=build-essentials= on Debian), =dkms=, and the =linux-headers= for your currently installed kernel.
+   + The GUI also requires OpenGL and GLFW development files to build.
+   + The installation script should be run as a *regular user* and will use =sudo= internally when needed.
+
+*** Installation
+   The easiest way to install YeetMouse is to use the provided =./install.sh= script:
+   #+begin_src sh
+   git clone https://github.com/AndyFilter/YeetMouse.git
+   cd YeetMouse
+   ./install.sh
+   #+end_src
+
+   The installer always installs the driver, =yeetmousectl=, config file, service, and uninstaller.
+   The GUI is built and installed *optionally* - if its dependencies are present.
+
+   If your user is added to the =yeetmouse= group during installation (should be by default), you must start a new login session before the GUI can access the driver.
+   Logging out and back in is usually enough; on some systems a reboot may be required.
+
+** GUI dependencies
+   The GUI requires:
+   + OpenGL
+   + GLFW3 development files
+   + =pkg-config=
+
+   If these are missing, the main installation still succeeds, but the GUI is skipped.
+   Once the dependencies are installed, you can install the GUI separately with:
+   #+begin_src sh
+   sudo make install_gui
+   #+end_src
+
+** Configuration model
+   YeetMouse uses a persistent configuration file:
+   #+begin_src sh
+   /etc/yeetmouse.conf
+   #+end_src
+
+   Runtime configuration is handled by =yeetmousectl=:
+   #+begin_src sh
+   yeetmousectl apply /etc/yeetmouse.conf
+   yeetmousectl dump
+   yeetmousectl save my-config.conf
+   #+end_src
+
+   On systemd-based systems, the installed =yeetmouse.service= automatically applies =/etc/yeetmouse.conf= during boot.
+
+** Uninstallation
+   If YeetMouse was installed system-wide, use:
+   #+begin_src sh
+   sudo yeetmouse-uninstall
+   #+end_src
+
+   The repository =./uninstall.sh= script will prefer the installed uninstaller if it exists, and otherwise fall back to the repository copy.
+
 
 ** Running the GUI
-*** Prerequisites:
-   + OpenGL (you most likely already have it)
-   + GLFW3, which can be installed via these commands:
+*** Permissions
+   The GUI is intended to run *without sudo*.
+   Access to the driver parameters is granted through the =yeetmouse= group.
+
+   After installation, your user may be added to that group automatically. This change applies only to *new login sessions*.
+   If the GUI cannot access the driver right after installation:
+   + log out and log back in,
+   + or reboot if your desktop session does not fully refresh group membership.
+
+*** Prerequisites
+   The GUI requires:
+   + OpenGL
+   + GLFW3 development files
+
+   Exact package names depend on the distribution. On Debian/Ubuntu systems, this usually means packages such as:
    #+begin_src sh
-    sudo apt-get install libglfw3
-    sudo apt-get install libglfw3-dev
+   sudo apt install libglfw3 libglfw3-dev
    #+end_src
 
 *** Building
-   To build, go to the gui directory =cd gui/= and run =make=
+   To build only the GUI:
+   #+begin_src sh
+   cd gui/
+   make
+   #+end_src
 
 *** Starting
-   Keep in mind that the program needs to be *run with sudo privileges*.
-   To run, simply use =sudo -E ./YeetMouseGui=
+   After installation, simply run:
+   #+begin_src sh
+   yeetmouse
+   #+end_src
+
+   The GUI should not need =sudo=, provided your user session already has the =yeetmouse= group.
 
 ** Arch
    For Arch based systems, a =PKGBUILD= has been written for seamless integration into pacman.
@@ -36,87 +107,124 @@
    sudo pacman -U pkg/build/yeetmouse*.zst
    sudo modprobe yeetmouse
    #+end_src
-   All your mice should now be bound to this driver and the YeetMouseGui will be available on your system
 
    *Uninstallation*
    #+begin_src sh
    sudo pacman -R yeetmouse yeetmouse-driver-dkms yeetmouse-gui
    #+end_src
-   All your mice should now be bound to the generic usbhid driver again.
 
 ** Ubuntu (tested on 24.04 and 20.04)
-  Simply use the installation and uninstallation scripts, =sudo ./install.sh= and =sudo ./uninstall.sh= respectively.
-  If something doesn't work as expected, try installing manually as stated in section *Other distros*, and check all the error logs.
+   Use the installation script as a regular user:
+   #+begin_src sh
+   ./install.sh
+   #+end_src
+
+   After installation, start a new login session before testing the GUI if group permissions have just been granted.
+
+   To uninstall:
+   #+begin_src sh
+   sudo yeetmouse-uninstall
+   #+end_src
 
 ** NixOS
-  Please refer to [[nix/][NixOS instructions]].
-   
+   Please refer to [[nix/][NixOS instructions]].
+
 ** Other distros
-   Other distributions' package-managers are not yet supported and thus need a manual installation.
-   
-   *Installation*
+   Other distributions' package-managers are not yet fully supported, so manual installation may be required.
 
-   Determine the current version of this module by examining the variable =DKMS_VER= in the =Makefile=. It can be e.g. 0.9.2
-   Run the following commands to build and install the kernel module
+*** Installation
+   The easiest method is:
    #+begin_src sh
-   # Install the driver and activate the dkms module
-   sudo make setup_dkms
-   sudo dkms install -m yeetmouse-driver -v 0.9.2 # Enter the version you determined from the Makefile earlier in here
-   sudo modprobe yeetmouse
+   ./install.sh
    #+end_src
-   (Or you can use the built-in install script like so: =sudo ./install.sh=).
 
-   All your mice should now be bound to this driver. They will also automatically bind to it after a reboot.
-   If this still does not work, there is a major problem
-   
+   This installs:
+   + the DKMS source tree,
+   + the kernel module through DKMS,
+   + =yeetmousectl=,
+   + the persistent config file in =/etc/yeetmouse.conf=,
+   + the systemd service (if systemd is present),
+   + and the GUI files if built/installed through the project Makefile.
+
+   If systemd is not present, you can still apply the config manually at boot using your init system:
+   #+begin_src sh
+   /usr/bin/yeetmousectl apply /etc/yeetmouse.conf
+   #+end_src
+
    *Uninstallation*
-   
-   You again need to know the =version= as described above for the installation
+   Use the installed uninstaller:
    #+begin_src sh
-   # Uninstall the driver
-   sudo dkms remove yeetmouse-driver/0.9.2 --all
-   sudo make remove_dkms
-   sudo rmmod yeetmouse
+   sudo yeetmouse-uninstall
    #+end_src
-   (Or you can use the built-in uninstall script like so: =sudo ./uninstall.sh=, this script determines installed driver version automatically).
 
-   Unplug and replug your mouse or reboot to have your mice bound back to the generic usbhid.
-* Manual compile, insmod, bind
-   If you want to compile this module only for testing purposes or development, you do not need to install the whole package to your system
+   The uninstaller disables the service, removes installed files, removes the DKMS module, and can optionally remove =/etc/yeetmouse.conf=.
 
-   Compile the module, remove previously loaded modules and insert it.
+* Manual compile & insmod
+   If you want to compile this module only for testing purposes or development, you do not need to install the whole package to your system.
+
+   Compile the module, remove previously loaded modules and insert it:
    #+begin_src sh
    make clean && make
    sudo rmmod yeetmouse
    sudo insmod ./driver/yeetmouse.ko
    #+end_src
 
+* Command line usage
+** Applying a config
+   Apply a persistent config file to the running driver:
+   #+begin_src sh
+   yeetmousectl apply /etc/yeetmouse.conf
+   #+end_src
+
+** Dumping current runtime values
+   Print the currently active driver parameters:
+   #+begin_src sh
+   yeetmousectl dump
+   #+end_src
+
+** Saving current runtime values
+   Save the currently active settings to a file:
+   #+begin_src sh
+   yeetmousectl save my-config.conf
+   #+end_src
+
 * FAQ
-*** How to set custom parameter value?
+** How to set custom parameter value?
 - Ctrl + Left Click on the parameter box to start inputting the values manually.
 
+** How are settings preserved between reboots?
+- Settings are stored in =/etc/yeetmouse.conf=.
+- To apply them immediately:
+  #+begin_src sh
+  yeetmousectl apply /etc/yeetmouse.conf
+  #+end_src
+- On systemd systems, the installed =yeetmouse.service= automatically applies them on boot.
+- To export the currently active settings:
+  #+begin_src sh
+  yeetmousectl save my-config.conf
+  #+end_src
 
-*** Settings are not preserved between reboots
-- This is (unfortunately) how things are done on most distros, for security reasons I presume.
-  But there is a way so save the settings. All You need to do is find the values You like and Export them to a config.h format like so:
-  #+CAPTION: Exporting config to a .h format
-  [[media/YeetMouseExportSaveConfig.png]]
+** Why does the GUI say it is running without yeetmouse group privileges?
+- Your user was likely added to the =yeetmouse= group during installation.
+- Group changes usually apply only to a new login session.
+- Log out and log back in, or reboot if necessary.
 
-  Then simply replace the =config.h= file located in =/driver= (or create a one), and reinstall the driver (uninstall and install).
+** Mouse feels off (too fast / slow)
+- On some distros (for example Ubuntu 20.04) the system adds an additional sensitivity on top of the driver.
+  To combat this, configure the desktop sensitivity appropriately.
+  For Ubuntu 20.04 users, one useful value is:
+  #+begin_src sh
+  gsettings set org.gnome.desktop.peripherals.mouse speed -0.666
+  #+end_src
 
-*** Mouse feels off (too fast / slow)
-- On some distros (for example Ubuntu 20.04) system adds an additional sensitivity on top of the driver. To combat this You'll need to configure the settings correctly.
-  This is system dependant, but for Ubuntu 20.04 users, the exact sensitivity value is -0.666, to apply that, simply use =gsettings set org.gnome.desktop.peripherals.mouse speed -0.666=
-
-
-*** How do I convert my RawAccel settings?
+** How do I convert my RawAccel settings?
 - For the simple modes like /Linear, Classic, Power/ just use the RawAccel's values (same for /Jump/).
-- For /Motivity/ and /Natural/, You're out of luck for now. Motivity is implemented, but it does not support =Gain=. Natural on the other hand is not implemented, and not planned as of for now.
+- For /Motivity/ and /Natural/, you're out of luck for now. Motivity is implemented, but it does not support =Gain=. Natural on the other hand is not implemented, and not planned as of for now.
 - LuT (Look up Table) is just what you put in it, there is no difference between YeetMouse and RawAccel.
 - Keep in mind that the names are not 1:1 for every parameter.
-- To check how Your new curve compares to RawAccel's, just take a screenshot of RawAccel with your curve and compare the two.
+- To check how your new curve compares to RawAccel's, just take a screenshot of RawAccel with your curve and compare the two.
 
-*** How to apply LUT curves as velocity (and use the EPP (Windows default acceleration) curve)? 
+** How to apply LUT curves as velocity (and use the EPP (Windows default acceleration) curve)?
 - YeetMouse currently doesn't support applying the LUT as velocity.
 - To convert a velocity LUT into a sensitivity (normal) LUT, use the Python script from this comment: https://github.com/AndyFilter/YeetMouse/issues/67#issuecomment-3620653542.
 - For the EPP (Enhance Pointer Precision) curve specifically, use the config from this comment: https://github.com/AndyFilter/YeetMouse/issues/67#issuecomment-3620653542.

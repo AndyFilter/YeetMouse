@@ -1,20 +1,13 @@
 # Define the compiler and flags
 CXX = g++
-CXXFLAGS = -Wall -std=c++17 -I gui/External
+CXXFLAGS = -Wall -std=c++17 -I. -IExternal
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
-LIBS = -lglfw -ldl # this might have to be lglfw3 instead
-#LDFLAGS = -flto
 
-ifneq ("$(wildcard $(/usr/lib/x86_64-linux-gnu/libglfw3.so))","") # Check if glfw3 exists
-	LIBS = -lglfw3 # and use it instead
-endif
-
-# glfw and OpenGL are required to compile!
-#sudo apt install libglfw3-dev
-
-# If I even decide to switch to libusb:
-#sudo apt-get install libusb-1.0-0-dev
+PKG_CONFIG ?= pkg-config
+GLFW_CFLAGS := $(shell $(PKG_CONFIG) --cflags glfw3 2>/dev/null)
+GLFW_LIBS := $(shell $(PKG_CONFIG) --libs glfw3 2>/dev/null)
+OPENGL_LIBS := -lGL -ldl
 
 # Define the source files
 SOURCES = main.cpp gui.cpp DriverHelper.cpp ImGuiExtensions.cpp FunctionHelper.cpp CustomCurve.cpp ConfigHelper.cpp $(wildcard External/ImGui/*.cpp) $(wildcard gui/lib/*.cpp)
@@ -27,22 +20,33 @@ TARGET = YeetMouseGui
 
 default: all
 
-all: $(TARGET)
+all: check_deps $(TARGET)
+
+check_deps:
+	@command -v $(PKG_CONFIG) >/dev/null 2>&1 || { \
+		echo "Missing dependency: pkg-config"; \
+		echo "Please install pkg-config and the GLFW3 development files, then try again."; \
+		exit 1; \
+	}
+	@$(PKG_CONFIG) --exists glfw3 || { \
+		echo "Missing dependency: glfw3 development files"; \
+		echo "Please install GLFW3 development files for your distribution, then try again."; \
+		exit 1; \
+	}
 
 # Rule to build the target
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(OPTIMIZATION_FLAGS) -o $@ $(OBJECTS) -L/usr/lib/x86_64-linux-gnu -lGL $(LIBS)
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -o $@ $(OBJECTS) $(GLFW_LIBS) $(OPENGL_LIBS)
 
-# Rule to build the object files with LTO
+# Rule to build the object files
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
 
-# Rule to build the object files with LTO (only for ImGui source files)
+# Rule to build the object files for ImGui source files
 External/ImGui/%.o: External/ImGui/%.cpp
-	$(CXX) $(CXXFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
 
-
-.PHONY: clean clean-all debug
+.PHONY: all check_deps clean clean-all debug
 
 clean-all: clean
 	rm -rf External/ImGui/*.o
@@ -50,7 +54,7 @@ clean-all: clean
 # Removing the imgui object files is kinda pointless for most cases and it takes a lot of time to rebuild
 clean:
 	rm -rf *.o
-	rm $(TARGET)
+	rm -f $(TARGET)
 
 debug:
 	@echo "Building GUI for debugging..."

@@ -31,6 +31,9 @@
 #ifndef __FIXED64_H
 #define __FIXED64_H
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+
 // Include numeric types
 #include <cstdint>
 #include <climits>

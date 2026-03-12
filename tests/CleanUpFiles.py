@@ -10,6 +10,7 @@ header_contents = """#ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "config.h"
 """ + header_contents + """
 
 #ifdef __cplusplus

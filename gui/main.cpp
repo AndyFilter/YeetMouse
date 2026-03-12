@@ -7,6 +7,7 @@
 #include "ImGuiExtensions.h"
 #include "ConfigHelper.h"
 #include <chrono>
+#include <fstream>
 #include <vector>
 #include <unistd.h>
 
@@ -1064,10 +1065,10 @@ int OnGui() {
 
         ImGui::SetWindowFontScale(1.2f);
 
-        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(0.975, 0.9, 1).Value);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0.975, 0.82, 1).Value);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0.975, 0.75, 1).Value);
-        if (ImGui::Button("Reset", {avail.x / 2 - 15, -1})) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(0.975, 0.82, 0.8).Value);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0.975, 0.75, 0.8).Value);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0.975, 0.7, 0.8).Value);
+        if (ImGui::Button("Reset", {avail.x / 3 - (ImGui::GetStyle().ItemSpacing.x * 2), -1})) {
             ResetParameters();
         }
         ImGui::PopStyleColor(3);
@@ -1080,13 +1081,34 @@ int OnGui() {
                              (selected_mode == AccelMode_Lut /* LUT */ && params[selected_mode].lutSize == 0) ||
                              !functions[selected_mode].isValid);
 
-        if (ImGui::Button("Apply", {-1, -1})) {
+        if (ImGui::Button("Apply", {avail.x / 3 - (ImGui::GetStyle().ItemSpacing.x * 2), -1})) {
             params[selected_mode].SaveAll();
             functions[0] = functions[selected_mode];
             params[0] = params[selected_mode];
             used_mode = selected_mode;
             last_apply_clicked = steady_clock::now();
         }
+
+        ImGui::SameLine();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImColor::HSV(0.3, 0.75, 0.76).Value);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0.3, 0.7, 0.8).Value);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0.3, 0.67, 0.83).Value);
+        if (ImGui::Button("Apply + Save", {-1, -1})) {
+            params[selected_mode].SaveAll(false);
+            if (!DriverHelper::SavePersistentParameters())
+                fprintf(stderr, "Failed to save parameters in /etc/yeetmouse.conf\n");
+            else {
+                DriverHelper::SaveParameters();
+                functions[0] = functions[selected_mode];
+                params[0] = params[selected_mode];
+                used_mode = selected_mode;
+                last_apply_clicked = steady_clock::now();
+            }
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SetItemTooltip("Saves config across reboots");
 
         ImGui::EndDisabled();
 
@@ -1105,7 +1127,7 @@ int OnGui() {
     if (!has_privilege)
         ImGui::GetForegroundDrawList()->AddText(ImVec2(10, ImGui::GetWindowHeight() - 40),
                                                 ImColor::HSV(0.975, 0.9, 1).operator ImU32(),
-                                                "Running without root privileges.\nSome functions will not be available");
+                                                "Running without yeetmouse group privileges.\nSome functions will not be available");
 
     if (!was_initialized)
         ImGui::GetForegroundDrawList()->AddText(ImVec2(10, 55),
@@ -1166,13 +1188,15 @@ int main() {
 
     ImGui::GetIO().IniFilename = nullptr;
 
-    if (getuid()) {
-        fprintf(stderr, "You are not a root!\n");
+    std::ifstream driver_update_file(YEETMOUSE_PARAMS_DIR "update");
+    if (!driver_update_file.is_open()) {
+        fprintf(stderr, "You are not added to the 'yeetmouse' group, re-login before using the GUI!\n");
         has_privilege = false;
         //return 1;
     } else
         has_privilege = true;
 
+    driver_update_file.close();
 
     if (!DriverHelper::ValidateDirectory()) {
         fprintf(stderr,
@@ -1185,46 +1209,7 @@ int main() {
         fprintf(stderr, "Could not setup driver params\n");
     } else {
         // Read driver parameters to a dummy aggregate
-        DriverHelper::GetParameterF("Sensitivity", start_params.sens);
-        DriverHelper::GetParameterF("SensitivityY", start_params.ratioYX);
-        DriverHelper::GetParameterF("OutputCap", start_params.outCap);
-        DriverHelper::GetParameterF("InputCap", start_params.inCap);
-        DriverHelper::GetParameterF("Offset", start_params.offset);
-        DriverHelper::GetParameterF("Acceleration", start_params.accel);
-        DriverHelper::GetParameterF("Exponent", start_params.exponent);
-        DriverHelper::GetParameterF("Midpoint", start_params.midpoint);
-        DriverHelper::GetParameterF("Motivity", start_params.motivity);
-        DriverHelper::GetParameterF("PreScale", start_params.preScale);
-        DriverHelper::GetParameterI("AccelerationMode", reinterpret_cast<int &>(start_params.accelMode));
-        DriverHelper::GetParameterB("UseSmoothing", start_params.useSmoothing);
-        DriverHelper::GetParameterI("LutSize", start_params.lutSize);
-        DriverHelper::GetParameterF("RotationAngle", start_params.rotation);
-        start_params.rotation /= DEG2RAD;
-        DriverHelper::GetParameterF("AngleSnap_Threshold", start_params.asThreshold);
-        start_params.asThreshold /= DEG2RAD;
-        DriverHelper::GetParameterF("AngleSnap_Angle", start_params.asAngle);
-        start_params.asAngle /= DEG2RAD;
-        //DriverHelper::GetParameterF("LutStride", start_params.LUT_stride);
-        std::string Lut_dataBuf;
-        DriverHelper::GetParameterS("LutDataBuf", Lut_dataBuf);
-        Lut_dataBuf.copy(LUT_user_data, sizeof(LUT_user_data), 0);
-        DriverHelper::ParseDriverLutData(Lut_dataBuf.c_str(), start_params.lutDataX, start_params.lutDataY);
-
-        // Load custom curve data
-        Lut_dataBuf.clear();
-        if (DriverHelper::GetParameterS("_CustomCurveDataAggregate", Lut_dataBuf)) {
-            CustomCurve dummy_curve;
-            if (!dummy_curve.ImportCustomCurve(Lut_dataBuf) && start_params.accelMode == AccelMode_CustomCurve) {
-                fprintf(stderr, "Could not load custom curve data\n");
-                start_params.accelMode = AccelMode_Lut;
-            }
-
-            if (!dummy_curve.points.empty()) {
-                start_params.customCurve = dummy_curve;
-            }
-        }
-
-        start_params.useAnisotropy = start_params.ratioYX != start_params.sens;
+        DriverHelper::ParseAllParameters(start_params, LUT_user_data);
 
         used_mode = start_params.accelMode;
 

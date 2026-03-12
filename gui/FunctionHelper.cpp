@@ -451,13 +451,13 @@ bool CachedFunction::ValidateSettings() {
 
     if (params->accelMode == AccelMode_Lut || params->accelMode == AccelMode_CustomCurve) {
         if (params->lutSize <= 1) {
-            printf("LUT size is not valid!\n");
+            //printf("LUT size is not valid!\n");
             isValid = false;
             return isValid;
         }
         for (int i = 0; i < params->lutSize; i++) {
             if (std::isnan(params->lutDataX[i]) || std::isnan(params->lutDataY[i])) {
-                printf("LUT data is not valid!\n");
+                //printf("LUT data is not valid!\n");
                 isValid = false;
                 return isValid;
             }

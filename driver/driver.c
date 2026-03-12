@@ -1,5 +1,4 @@
 #include "accel.h"
-#include "config.h"
 #include "util.h"
 
 #include <linux/hid.h>

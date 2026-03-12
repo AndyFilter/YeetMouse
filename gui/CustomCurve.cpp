@@ -250,8 +250,8 @@ bool CustomCurve::ImportCustomCurve(const std::string& data) {
         return false;
     }
 
-    // 1 element is not enough for a linear interpolation
-    if (idx <= 2 || idx % 6 + 2 != 0) {
+    // 1 element is not enough for a linear interpolation, and n = 3(i - 2) + 4 (where i is the number of nodes), idx 2x because of x/y coordinate
+    if (idx <= 2 || idx % 6 - 2 != 0) {
         return false;
     }
 

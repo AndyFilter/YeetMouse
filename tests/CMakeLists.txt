@@ -29,6 +29,7 @@ file(GLOB driver_source "../driver/accel_modes.[c|h]")
 file(GLOB fixedpoint_source "../driver/FixedMath/*")
 
 # Copy driver source files over
+# IF THE CMAKE FAILS HERE, JUST RE-RUN IT
 file(COPY ${driver_source} DESTINATION "${CMAKE_HOME_DIRECTORY}/driver")
 file(COPY ${fixedpoint_source} DESTINATION "${CMAKE_HOME_DIRECTORY}/driver/FixedMath")
 file(COPY "../shared_definitions.h" DESTINATION "${CMAKE_HOME_DIRECTORY}")
@@ -38,9 +39,6 @@ execute_process(COMMAND python3 CleanUpFiles.py
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 
 add_executable(YeetMouseTests main.cpp driver/accel_modes.c
-        driver/config.h
         TestManager.cpp
-        TestManager.h
         Tests.cpp
-        Tests.h
         ../gui/FunctionHelper.cpp)

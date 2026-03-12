@@ -1,7 +1,6 @@
 #ifndef ACCEL_MODES_H
 #define ACCEL_MODES_H
 
-#include "config.h" // Used in the testing suite
 #include <linux/module.h>
 #include "FixedMath/Fixed64.h"
 

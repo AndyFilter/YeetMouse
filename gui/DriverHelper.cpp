@@ -13,8 +13,6 @@
 #include "External/ImGui/imgui_internal.h"
 #include "External/ImGui/implot.h"
 
-#define YEETMOUSE_PARAMS_DIR "/sys/module/yeetmouse/parameters/"
-
 template<typename Ty>
 bool GetParameterTy(const std::string &param_name, Ty &value) {
     try {
@@ -157,6 +155,10 @@ namespace DriverHelper {
         return SetParameterTy("update", (int) 1);
     }
 
+    bool SavePersistentParameters() {
+        return std::system("pkexec /usr/bin/yeetmousectl save /etc/yeetmouse.conf") == 0;
+    }
+
     bool WriteParameterF(const std::string &param_name, float value) {
         return SetParameterTy(param_name, value);
     }
@@ -286,7 +288,7 @@ namespace DriverHelper {
             (idx % 2 == 0 ? out_x : out_y)[idx++ / 2] = p;
 
             char nextC = ss.peek();
-            if (nextC == ';')
+            if (nextC == ';' || nextC == ',')
                 ss.ignore();
 
             //idx++;
@@ -298,6 +300,52 @@ namespace DriverHelper {
         }
 
         return idx / 2;
+    }
+
+    bool ParseAllParameters(Parameters &params, char *lutUserData) {
+        bool res = true;
+        
+        res &= GetParameterF("Sensitivity", params.sens);
+        res &= GetParameterF("RatioYX", params.ratioYX);
+        res &= GetParameterF("OutputCap", params.outCap);
+        res &= GetParameterF("InputCap", params.inCap);
+        res &= GetParameterF("Offset", params.offset);
+        res &= GetParameterF("Acceleration", params.accel);
+        res &= GetParameterF("Exponent", params.exponent);
+        res &= GetParameterF("Midpoint", params.midpoint);
+        res &= GetParameterF("Motivity", params.motivity);
+        res &= GetParameterF("PreScale", params.preScale);
+        res &= GetParameterI("AccelerationMode", reinterpret_cast<int &>(params.accelMode));
+        res &= GetParameterB("UseSmoothing", params.useSmoothing);
+        res &= GetParameterI("LutSize", params.lutSize);
+        res &= GetParameterF("RotationAngle", params.rotation);
+        params.rotation /= DEG2RAD;
+        res &= GetParameterF("AngleSnap_Threshold", params.asThreshold);
+        params.asThreshold /= DEG2RAD;
+        res &= GetParameterF("AngleSnap_Angle", params.asAngle);
+        params.asAngle /= DEG2RAD;
+        std::string Lut_dataBuf;
+        res &= GetParameterS("LutDataBuf", Lut_dataBuf);
+        Lut_dataBuf.copy(lutUserData, MAX_LUT_BUF_LEN-1, 0);
+        ParseDriverLutData(Lut_dataBuf.c_str(), params.lutDataX, params.lutDataY);
+
+        // Load custom curve data
+        Lut_dataBuf.clear();
+        if (res &= GetParameterS("_CustomCurveDataAggregate", Lut_dataBuf)) {
+            CustomCurve dummy_curve;
+            if (!dummy_curve.ImportCustomCurve(Lut_dataBuf) && params.accelMode == AccelMode_CustomCurve) {
+                fprintf(stderr, "Could not load custom curve data\n");
+                params.accelMode = AccelMode_Lut;
+            }
+
+            if (!dummy_curve.points.empty()) {
+                params.customCurve = dummy_curve;
+            }
+        }
+
+        params.useAnisotropy = params.ratioYX != params.sens;
+
+        return res;
     }
 
     std::string EncodeLutData(double *data_x, double *data_y, size_t size, bool strict_format) {
@@ -319,7 +367,7 @@ namespace DriverHelper {
 //                                                                           midpoint(midpoint), scrollAccel(scrollAccel),
 //                                                                           accelMode(accelMode) {}
 
-bool Parameters::SaveAll() {
+bool Parameters::SaveAll(bool auto_update) {
     bool res = true;
 
     // LUT
@@ -360,7 +408,7 @@ bool Parameters::SaveAll() {
 
     res &= SetParameterTy("AccelerationMode", accelMode);
 
-    if (res)
+    if (res && auto_update)
         res &= DriverHelper::SaveParameters();
 
     return res;

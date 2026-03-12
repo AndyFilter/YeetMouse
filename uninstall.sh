@@ -1,23 +1,23 @@
 #!/bin/bash
 
-# Get the installed version of the driver
-installed_version=$(dkms status -k $(uname -r) | grep -oP '^([l|y]eetmouse-driver[\/(, )]) ?\K([0-9.]+)')
+set -euo pipefail
 
-# Check if the driver is even installed
-if [[ -z "$installed_version" ]]; then
-	echo "Driver not installed, exiting."
-	exit 0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALLED_UNINSTALLER="/usr/bin/yeetmouse-uninstall"
+REPO_UNINSTALLER="${SCRIPT_DIR}/install_files/yeetmouse-uninstall.sh"
+
+if [[ -x "$INSTALLED_UNINSTALLER" ]]; then
+	echo "Using installed uninstaller: $INSTALLED_UNINSTALLER"
+	exec sudo "$INSTALLED_UNINSTALLER" "$@"
 fi
 
-# Check if the installed version is old
-if [[ $(printf '%s\n' "$installed_version" "0.9.1" | sort -V | head -n1) == "$installed_version" ]]; then
-	echo "Please uninstall the old driver ($installed_version) using the old uninstaller first!"
-	exit 1
+if [[ -x "$REPO_UNINSTALLER" ]]; then
+	echo "Installed uninstaller not found, using repository uninstaller: $REPO_UNINSTALLER"
+	exec sudo "$REPO_UNINSTALLER" "$@"
 fi
 
-# Uninstall the driver
-#sudo dkms remove -m yeetmouse-driver -v $installed_version # Newer dkms versions
-sudo dkms remove "yeetmouse-driver/$installed_version" --all # Older (for Ubuntu <= 20.04), but should work now too
-sudo make remove_dkms
-sudo modprobe -r yeetmouse
-sudo rmmod yeetmouse
+echo "No usable YeetMouse uninstaller was found."
+echo "Expected one of:"
+echo "  $INSTALLED_UNINSTALLER"
+echo "  $REPO_UNINSTALLER"
+exit 1

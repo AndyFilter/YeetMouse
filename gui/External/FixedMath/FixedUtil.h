@@ -31,6 +31,8 @@
 #ifndef __FIXEDUTIL_H
 #define __FIXEDUTIL_H
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 // Include numeric types
 #include <cstdint>
 #include <climits>

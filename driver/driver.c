@@ -147,12 +147,6 @@ unchanged_return:
 }
 
 static bool driver_match(struct input_handler *handler, struct input_dev *dev) {
-    if (!dev->dev.parent)
-        return false;
-    struct hid_device *hdev = to_hid_device(dev->dev.parent);
-    printk("Yeetmouse: found a possible mouse %s", hdev->name);
-    //return hdev->type == HID_TYPE_USBMOUSE; // This only detects USB mice, not bluetooth, or other mice (like PS/2)
-
     // Discard if doesn't have left button key capabilities
     if (!test_bit(EV_KEY, dev->evbit) || !test_bit(BTN_LEFT, dev->keybit) || !test_bit(BTN_MOUSE, dev->keybit))
         return false;
@@ -161,9 +155,13 @@ static bool driver_match(struct input_handler *handler, struct input_dev *dev) {
     if (!test_bit(EV_REL, dev->evbit) || !test_bit(REL_X, dev->relbit) || !test_bit(REL_Y, dev->relbit))
         return false;
 
-    // Discard if doesn't have scroll capabilities (should not be necessary)
-    // if (!test_bit(REL_WHEEL, dev->relbit))
-    //   return false;
+    if (dev->dev.parent && dev->dev.parent->bus == &hid_bus_type) {
+        struct hid_device *hdev = to_hid_device(dev->dev.parent);
+        printk("Yeetmouse: found a possible mouse (HID) %s", hdev->name);
+    } else {
+        // handles virtual uinput devices like "keyd virtual pointer"
+        printk("Yeetmouse: found a possible mouse %s", dev->name ?: "unknown");
+    }
 
     // This still might permit some tablets
     return true;

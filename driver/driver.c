@@ -2,6 +2,7 @@
 #include "config.h"
 #include "util.h"
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/hid.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -147,24 +148,30 @@ unchanged_return:
 }
 
 static bool driver_match(struct input_handler *handler, struct input_dev *dev) {
-    // Discard if doesn't have left button key capabilities
+    // Discard device if it doesn't have left button key capabilities
     if (!test_bit(EV_KEY, dev->evbit) || !test_bit(BTN_LEFT, dev->keybit) || !test_bit(BTN_MOUSE, dev->keybit))
         return false;
 
-    // Discard if doesn't have relative movement capabilities
+    // Discard device if it doesn't have relative movement capabilities
     if (!test_bit(EV_REL, dev->evbit) || !test_bit(REL_X, dev->relbit) || !test_bit(REL_Y, dev->relbit))
         return false;
 
     if (dev->dev.parent && dev->dev.parent->bus == &hid_bus_type) {
         struct hid_device *hdev = to_hid_device(dev->dev.parent);
-        printk("Yeetmouse: found a possible mouse (HID) %s", hdev->name);
-    } else {
-        // handles virtual uinput devices like "keyd virtual pointer"
-        printk("Yeetmouse: found a possible mouse %s", dev->name ?: "unknown");
+        pr_info("found a possible mouse (HID) %s", hdev->name);
+        return true;
     }
 
-    // This still might permit some tablets
-    return true;
+    // handle other non-HID devices, like virtual devices
+    // NOTE: keyd actually emulates a USB device with BUS_USB:
+    // https://github.com/rvaiya/keyd/blob/7c0aecb8bfd34dc8642bf4eefd2e59c89e61cec3/src/vkbd/uinput.c#L87
+    if (dev->id.bustype == BUS_USB || dev->id.bustype == BUS_VIRTUAL) {
+        pr_info("found a possible mouse %s", dev->name ?: "unknown");
+        return true;
+    }
+    pr_warn("skipping incompatible device %s", dev->name);
+
+    return false;
 }
 
 /* Same as Linux's input_register_handle but we always add the handle to the head of handlers */
@@ -223,7 +230,7 @@ static int driver_connect(struct input_handler *handler, struct input_dev *dev, 
     if (error)
         goto err_unregister_handle;
 
-    printk(pr_fmt("Yeetmouse: connecting to device: %s (%s at %s)"), dev_name(&dev->dev), dev->name ?: "unknown",
+    pr_info("connecting to device: %s (%s at %s)", dev_name(&dev->dev), dev->name ?: "unknown",
            dev->phys ?: "unknown");
 
     return 0;

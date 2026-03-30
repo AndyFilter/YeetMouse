@@ -41,10 +41,6 @@ let
       "M=$(sourceRoot)/driver"
     ];
 
-    preBuild = ''
-      cp $sourceRoot/driver/config.sample.h $sourceRoot/driver/config.h
-    '';
-
     LD_LIBRARY_PATH = "/run/opengl-driver/lib:${lib.makeLibraryPath buildInputs}";
 
     postBuild = ''

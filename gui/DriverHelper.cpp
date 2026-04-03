@@ -317,7 +317,9 @@ namespace DriverHelper {
         res &= GetParameterF("Midpoint", params.midpoint);
         res &= GetParameterF("Motivity", params.motivity);
         res &= GetParameterF("PreScale", params.preScale);
-        res &= GetParameterI("AccelerationMode", reinterpret_cast<int &>(params.accelMode));
+        int accelMode{};
+        res &= GetParameterI("AccelerationMode", accelMode);
+        params.accelMode = static_cast<AccelMode>(accelMode);
         res &= GetParameterB("UseSmoothing", params.useSmoothing);
         res &= GetParameterI("LutSize", params.lutSize);
         res &= GetParameterF("RotationAngle", params.rotation);

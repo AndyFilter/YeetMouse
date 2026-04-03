@@ -1,7 +1,7 @@
 #include <array>
 #include <csignal>
 #include "gui.h"
-#include "External/ImGui/implot.h"
+#include <ImGui/implot.h>
 #include "DriverHelper.h"
 #include "FunctionHelper.h"
 #include "ImGuiExtensions.h"
@@ -11,8 +11,8 @@
 #include <vector>
 #include <unistd.h>
 
-#include "External/ImGui/imgui_internal.h"
-#include "External/ImGui/implot_internal.h"
+#include <ImGui/imgui_internal.h>
+#include <ImGui/implot_internal.h>
 
 //#define USE_INPUT_DRAG
 

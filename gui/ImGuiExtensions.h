@@ -3,7 +3,7 @@
 #ifndef YEETMOUSE_IMGUIEXTENSIONS_H
 #define YEETMOUSE_IMGUIEXTENSIONS_H
 
-#include "External/ImGui/imgui.h"
+#include <ImGui/imgui.h>
 
 namespace ImGui {
     bool ModeSelectable(const char *label, bool is_selected = false, ImGuiSelectableFlags flags = 0,

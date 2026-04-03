@@ -1,5 +1,5 @@
 #include "DriverHelper.h"
-#include "External/FixedMath/Fixed64.h"
+#include <FixedMath/Fixed64.h>
 #include <fstream>
 #include <filesystem>
 #include <iostream>
@@ -10,8 +10,8 @@
 #include <sys/stat.h>
 #include <set>
 
-#include "External/ImGui/imgui_internal.h"
-#include "External/ImGui/implot.h"
+#include <ImGui/imgui_internal.h>
+#include <ImGui/implot.h>
 
 template<typename Ty>
 bool GetParameterTy(const std::string &param_name, Ty &value) {

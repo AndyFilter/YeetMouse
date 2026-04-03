@@ -1,13 +1,13 @@
 #ifndef CUSTOMCURVE_H
 #define CUSTOMCURVE_H
 
-#include "External/ImGui/imgui.h"
+#include <ImGui/imgui.h>
 #include <deque>
 #include <array>
 #include <string>
 #include <vector>
 
-#include "External/ImGui/implot.h"
+#include <ImGui/implot.h>
 
 #define CURVE_POINTS_MARGIN 0.2f
 #define BEZIER_FRAG_SEGMENTS 50

@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "DriverHelper.h"
-#include "External/ImGui/imgui_internal.h"
+#include <ImGui/imgui_internal.h>
 
 void CustomCurve::ApplyCurveConstraints() {
     for (int i = 0; i < points.size(); i++) {

@@ -47,7 +47,7 @@ let
     postBuild = ''
       make "-j$NIX_BUILD_CORES" -C $sourceRoot/gui "M=$sourceRoot/gui" \
         "LIBS=-lglfw -lGL" \
-        "CXXFLAGS=-Wno-sign-compare -Wno-unused-function -Wno-return-type"
+        "CXXFLAGS=-Wno-sign-compare -Wno-unused-function -Wno-return-type -isystem $sourceRoot/gui/External"
     '';
 
     postInstall = let

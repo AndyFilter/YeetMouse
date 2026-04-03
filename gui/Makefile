@@ -1,6 +1,7 @@
 # Define the compiler and flags
 CXX = g++
-CXXFLAGS = -Wall -std=c++17 -I. -IExternal
+CXXFLAGS = -std=c++17 -I. -IExternal
+WARNFLAGS = -Wall
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
 
@@ -36,11 +37,11 @@ check_deps:
 
 # Rule to build the target
 $(TARGET): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -o $@ $(OBJECTS) $(GLFW_LIBS) $(OPENGL_LIBS)
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) $(WARNFLAGS) -o $@ $(OBJECTS) $(GLFW_LIBS) $(OPENGL_LIBS)
 
 # Rule to build the object files
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) $(WARNFLAGS) -c $< -o $@
 
 # Rule to build the object files for ImGui source files
 External/ImGui/%.o: External/ImGui/%.cpp

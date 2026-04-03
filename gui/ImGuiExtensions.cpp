@@ -22,4 +22,5 @@ bool ImGui::ModeSelectable(const char *label, bool is_selected, ImGuiSelectableF
 
 bool ImGui::ParameterSlider(const char *label, float &value, float v_speed, float v_min, float v_max) {
     //ImGui::Text()
+    return true;
 }

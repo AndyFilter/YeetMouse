@@ -1,7 +1,7 @@
 # Define the compiler and flags
 CXX = g++
 CXXFLAGS = -std=c++17 -I . -isystem External
-WARNFLAGS = -Wall
+WARNFLAGS = -Wall -Wno-sign-compare
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
 

@@ -216,7 +216,8 @@ namespace DriverHelper {
                     else
                         visited_x.insert(p);
                 }
-                ((idx % 2 == 0) ? out_x : out_y)[idx++ / 2] = p;
+                ((idx % 2 == 0) ? out_x : out_y)[idx / 2] = p;
+                idx++;
 
                 //((idx % 2 == 0) ? out_x : out_y)[idx++ / 2] = p;
 
@@ -285,7 +286,8 @@ namespace DriverHelper {
         double p = 0;
         while (idx < MAX_LUT_ARRAY_SIZE * 2 && ss >> p) {
             //printf("idx = %zu, p = %f\n", idx, p);
-            (idx % 2 == 0 ? out_x : out_y)[idx++ / 2] = p;
+            (idx % 2 == 0 ? out_x : out_y)[idx / 2] = p;
+            idx++;
 
             char nextC = ss.peek();
             if (nextC == ';' || nextC == ',')

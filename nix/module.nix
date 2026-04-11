@@ -45,7 +45,7 @@ let
       type = types.submodule {
         options = {
           acceleration = mkOption {
-            type = floatRange 0.0005 1.0;
+            type = floatRange 0.0 1.0;
             default = 0.15;
             description = "Linear acceleration multiplier";
           };

@@ -182,7 +182,7 @@ namespace DriverHelper {
 
     size_t ParseUserLutData(char *szUser_data, double *out_x, double *out_y, size_t out_size) {
         if (!szUser_data) {
-            strcpy(szUser_data, "Bad data pointer\0");
+            fprintf(stderr, "Error: User LUT data is empty!\n");
             return 0;
         }
 
@@ -237,7 +237,7 @@ namespace DriverHelper {
 
             // 1 element is not enough for a linear interpolation
             if (idx <= 2 || idx % 2 == 1) {
-                strcpy(szUser_data, "Not enough values or bad formatting\0");
+                strcpy(szUser_data, "Not enough values or bad formatting");
                 return 0;
             }
 

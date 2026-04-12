@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O2 -Wall -std=c++17
+CXXFLAGS = -O2 -Wall -std=c++17 -isystem ../../gui/External
 
 SRC = main.cpp  \
       ../../gui/ConfigHelper.cpp \

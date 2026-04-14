@@ -1,14 +1,12 @@
-{ shortRev ? "dev" }:
-pkgs @ {
+{
   lib,
-  bash,
   stdenv,
-  coreutils,
   writeShellScript,
   makeDesktopItem,
+  pkgs,
   kernel ? pkgs.linuxPackages.kernel,
   kernelModuleMakeFlags ? pkgs.linuxPackages.kernelModuleMakeFlags,
-  ...
+  shortRev ? "dev"
 }:
 
 let

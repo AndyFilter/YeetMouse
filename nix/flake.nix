@@ -12,14 +12,14 @@
     };
     eachSystem = lib.genAttrs ["aarch64-linux" "x86_64-linux"];
     overlay = final: prev: {
-      yeetmouse = import ./package.nix packageInputs final;
+      yeetmouse = final.callPackage import ./package.nix packageInputs;
     };
   in {
     inherit inputs;
     nixosModules.default = import ./module.nix overlay;
     overlays.default = overlay;
     packages = eachSystem (system: {
-      yeetmouse = (import ./package.nix packageInputs nixpkgs.legacyPackages.${system});
+      yeetmouse = nixpkgs.legacyPackages.${system}.callPackage ./package.nix packageInputs;
     });
   };
 }

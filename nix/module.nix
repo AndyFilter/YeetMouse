@@ -1,4 +1,4 @@
-yeetmouseOverlay:
+shortRev:
 { pkgs, config, lib, ... }:
 
 with lib;
@@ -462,9 +462,7 @@ let
     };
   };
 
-  yeetmouse = pkgs.yeetmouse.override {
-    kernel = config.boot.kernelPackages.kernel;
-  };
+  yeetmouse = config.boot.kernelPackages.callPackage ./package.nix { inherit shortRev; };
 in {
   options.hardware.yeetmouse = {
     enable = mkOption {
@@ -588,8 +586,6 @@ in {
   };
 
   config = mkIf cfg.enable {
-    nixpkgs.overlays = [ yeetmouseOverlay ];
-
     boot.extraModulePackages = [ yeetmouse ];
     environment.systemPackages = [ yeetmouse ];
     services.udev = {

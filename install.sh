@@ -16,6 +16,11 @@ else
     TARGET_USER="${USER:-$(id -un)}"
 fi
 
+if [[ -n "${CI:-}" ]]; then
+    echo "CI environment detected, skipping user setup"
+    TARGET_USER=""
+fi
+
 # Read version from a single source of truth
 DKMS_VER="$(sed -n 's/^YEETMOUSE_VERSION[[:space:]]*:=[[:space:]]*//p' version.mk | head -n1)"
 DKMS_NAME="$(sed -n 's/^DKMS_NAME[[:space:]]*:=[[:space:]]*//p' version.mk | head -n1)"
@@ -118,9 +123,13 @@ if ! getent group yeetmouse >/dev/null 2>&1; then
 	CREATED_GROUP=1
 fi
 
-if ! id -nG "$TARGET_USER" | grep -qw yeetmouse; then
-	echo "Adding user '$TARGET_USER' to yeetmouse group"
-	sudo usermod -aG yeetmouse "$TARGET_USER"
+if [[ -n "$TARGET_USER" ]] && id "$TARGET_USER" &>/dev/null; then
+    if ! id -nG "$TARGET_USER" | grep -qw yeetmouse; then
+        echo "Adding user '$TARGET_USER' to yeetmouse group"
+        sudo usermod -aG yeetmouse "$TARGET_USER"
+    fi
+else
+    echo "Skipping user group assignment (no valid TARGET_USER)"
 fi
 
 INSTALLED_DKMS_FILES=1

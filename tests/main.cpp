@@ -25,5 +25,7 @@ int main() {
         printf(RED"%i %s failed!\n\n", bad_sum, (bad_sum == 1) ? "test" : "tests");
     }
 
-    return 0;
+    const int exit_code = (bad_sum == 0 && arithmetic_test) ? 0 : 1;
+
+    return exit_code;
 }

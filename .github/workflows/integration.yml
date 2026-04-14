@@ -1,0 +1,41 @@
+name: Integration (Install + Uninstall + Test)
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake libglfw3-dev dkms linux-headers-$(uname -r)
+
+      - name: Run install script
+        env:
+          SUDO_USER: runner
+        run: |
+          chmod +x ./install.sh
+          ./install.sh
+
+      - name: Run uninstall script
+        env:
+          SUDO_USER: runner
+        run: |
+          sudo ./uninstall.sh --purge-config
+
+      - name: Build tests
+        run: |
+          cmake -S tests -B tests/build
+          cmake --build tests/build
+
+      - name: Run tests
+        working-directory: tests/build
+        run: ./YeetMouseTests

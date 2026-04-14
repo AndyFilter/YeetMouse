@@ -4,8 +4,8 @@
   writeShellScript,
   makeDesktopItem,
   pkgs,
-  kernel ? pkgs.linuxPackages.kernel,
-  kernelModuleMakeFlags ? pkgs.linuxPackages.kernelModuleMakeFlags,
+  kernel,
+  kernelModuleMakeFlags,
   shortRev ? "dev"
 }:
 

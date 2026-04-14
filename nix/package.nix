@@ -34,7 +34,6 @@ let
     ];
 
     makeFlags = kernelModuleMakeFlags ++ [
-      "KBUILD_OUTPUT=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "-C"
       "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "M=$(sourceRoot)/driver"

@@ -1,6 +1,14 @@
 # Define the compiler and flags
 CXX ?= g++
 CXXFLAGS = -std=c++17 -I . -isystem External
+
+# ImPlot has few of these
+IMGUIFLAGS = -Wformat=0 -Wno-format-security
+ifneq (,$(findstring clang,$(CXX)))
+    # ImGui produces many of these
+    IMGUIFLAGS += -Wno-nontrivial-memcall
+endif
+
 WARNFLAGS = -Wall -Wno-sign-compare
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
@@ -45,7 +53,7 @@ $(TARGET): $(OBJECTS)
 
 # Rule to build the object files for ImGui source files
 External/ImGui/%.o: External/ImGui/%.cpp
-	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(GLFW_CFLAGS) $(OPTIMIZATION_FLAGS) $(IMGUIFLAGS) -c $< -o $@
 
 .PHONY: all check_deps clean clean-all debug
 

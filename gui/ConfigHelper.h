@@ -2,6 +2,8 @@
 #define GUI_CONFIGHELPER_H
 
 #include <optional>
+#include <sstream>
+#include <string>
 #include "DriverHelper.h"
 
 namespace ConfigHelper {

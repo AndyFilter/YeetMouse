@@ -3,6 +3,8 @@ name: CI (Build + Test)
 on:
   pull_request:
     branches: [ "master" ]
+  push:
+    branches: [ "master" ]
 
 jobs:
   build:
@@ -17,15 +19,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake libglfw3-dev linux-headers-$(uname -r)
 
-      - name: Build YeetMouse (driver + GUI + yeetmousectl)
-        run: |
-          make driver GUI yeetmousectl
+      - name: Build driver
+        run: make driver
+
+      - name: Build GUI
+        run: make GUI
+        if: ${{ !cancelled() }}
+
+      - name: Build yeetmousectl
+        run: make yeetmousectl
+        if: ${{ !cancelled() }}
 
       - name: Build tests
         run: |
           cmake -S tests -B tests/build
           cmake --build tests/build
+        if: ${{ !cancelled() }}
 
       - name: Run tests
         working-directory: tests/build
         run: ./YeetMouseTests
+        if: ${{ !cancelled() }}

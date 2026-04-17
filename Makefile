@@ -55,7 +55,6 @@ driver:
 ifeq ($(ARCH),ppc64le)
 	@echo "PowerPC 64-bit Little Endian detected"
 endif
-	@cp -n $(DRIVERDIR)/config.sample.h $(DRIVERDIR)/config.h || true
 	$(MAKE) -C "$(KERNELDIR)" M="$(DRIVERDIR)" modules
 
 driver_clean:

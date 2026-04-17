@@ -92,14 +92,14 @@ static const FP_INT RCP_HALF_PI = 683565276; // 1.0 / (4.0 * 0.5 * Math.PI);  //
 /// <summary>
 /// Converts an integer to a fixed-point value.
 /// </summary>
-static FP_LONG FP64_FromInt(FP_INT v) {
+static inline FP_LONG FP64_FromInt(FP_INT v) {
     return (FP_LONG) v << FP64_Shift;
 }
 
 /// <summary>
 /// Converts a double to a fixed-point value.
 /// </summary>
-static FP_LONG FP64_FromDouble(double v) {
+static inline FP_LONG FP64_FromDouble(double v) {
     return (FP_LONG) (v * 4294967296.0);
 }
 
@@ -108,42 +108,42 @@ static FP_LONG FP64_FromDouble(double v) {
 /// <summary>
 /// Converts a float to a fixed-point value.
 /// </summary>
-static FP_LONG FP64_FromFloat(float v) {
+static inline FP_LONG FP64_FromFloat(float v) {
     return (FP_LONG) (v * 4294967296.0f);
 }
 
 /// <summary>
 /// Converts a fixed-point value into an integer by rounding it up to nearest integer.
 /// </summary>
-static FP_INT FP64_CeilToInt(FP_LONG v) {
+static inline FP_INT FP64_CeilToInt(FP_LONG v) {
     return (FP_INT) ((v + (One - 1)) >> FP64_Shift);
 }
 
 /// <summary>
 /// Converts a fixed-point value into an integer by rounding it down to nearest integer.
 /// </summary>
-static FP_INT FP64_FloorToInt(FP_LONG v) {
+static inline FP_INT FP64_FloorToInt(FP_LONG v) {
     return (FP_INT) (v >> FP64_Shift);
 }
 
 /// <summary>
 /// Converts a fixed-point value into an integer by rounding it to nearest integer.
 /// </summary>
-static FP_INT FP64_RoundToInt(FP_LONG v) {
+static inline FP_INT FP64_RoundToInt(FP_LONG v) {
     return (FP_INT) ((v + Half) >> FP64_Shift);
 }
 
 /// <summary>
 /// Converts a fixed-point value into a double.
 /// </summary>
-// static double FP64_ToDouble(FP_LONG v) {
+// static inline double FP64_ToDouble(FP_LONG v) {
 //     return (double) v * (1.0 / 4294967296.0);
 // }
 
 /// <summary>
 /// Converts a FP value into a float.
 /// </summary>
-// static float FP64_ToFloat(FP_LONG v) {
+// static inline float FP64_ToFloat(FP_LONG v) {
 //     return (float) v * (1.0f / 4294967296.0f);
 // }
 
@@ -154,7 +154,7 @@ static FP_INT FP64_RoundToInt(FP_LONG v) {
 /// <summary>
 /// Returns the absolute (positive) value of x.
 /// </summary>
-static FP_LONG FP64_Abs(FP_LONG x) {
+static inline FP_LONG FP64_Abs(FP_LONG x) {
     // \note fails with LONG_MIN
     FP_LONG mask = x >> 63;
     return (x + mask) ^ mask;
@@ -163,63 +163,63 @@ static FP_LONG FP64_Abs(FP_LONG x) {
 /// <summary>
 /// Negative absolute value (returns -abs(x)).
 /// </summary>
-static FP_LONG FP64_Nabs(FP_LONG x) {
+static inline FP_LONG FP64_Nabs(FP_LONG x) {
     return -FP64_Abs(x);
 }
 
 /// <summary>
 /// Round up to nearest integer.
 /// </summary>
-static FP_LONG FP64_Ceil(FP_LONG x) {
+static inline FP_LONG FP64_Ceil(FP_LONG x) {
     return (x + FractionMask) & IntegerMask;
 }
 
 /// <summary>
 /// Round down to nearest integer.
 /// </summary>
-static FP_LONG FP64_Floor(FP_LONG x) {
+static inline FP_LONG FP64_Floor(FP_LONG x) {
     return x & IntegerMask;
 }
 
 /// <summary>
 /// Round to nearest integer.
 /// </summary>
-static FP_LONG FP64_Round(FP_LONG x) {
+static inline FP_LONG FP64_Round(FP_LONG x) {
     return (x + Half) & IntegerMask;
 }
 
 /// <summary>
 /// Returns the fractional part of x. Equal to 'x - floor(x)'.
 /// </summary>
-static FP_LONG FP64_Fract(FP_LONG x) {
+static inline FP_LONG FP64_Fract(FP_LONG x) {
     return x & FractionMask;
 }
 
 /// <summary>
 /// Returns the minimum of the two values.
 /// </summary>
-static FP_LONG FP64_Min(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Min(FP_LONG a, FP_LONG b) {
     return (a < b) ? a : b;
 }
 
 /// <summary>
 /// Returns the maximum of the two values.
 /// </summary>
-static FP_LONG FP64_Max(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Max(FP_LONG a, FP_LONG b) {
     return (a > b) ? a : b;
 }
 
 /// <summary>
 /// Returns the value clamped between min and max.
 /// </summary>
-static FP_LONG FP64_Clamp(FP_LONG a, FP_LONG min, FP_LONG max) {
+static inline FP_LONG FP64_Clamp(FP_LONG a, FP_LONG min, FP_LONG max) {
     return (a > max) ? max : (a < min) ? min : a;
 }
 
 /// <summary>
 /// Returns the sign of the value (-1 if negative, 0 if zero, 1 if positive).
 /// </summary>
-static FP_INT FP64_Sign(FP_LONG x) {
+static inline FP_INT FP64_Sign(FP_LONG x) {
     // https://stackoverflow.com/questions/14579920/fast-sign-of-integer-in-c/14612418#14612418
     return (FP_INT) ((x >> 63) | (FP_LONG) (((FP_ULONG) -x) >> 63));
 }
@@ -227,21 +227,21 @@ static FP_INT FP64_Sign(FP_LONG x) {
 /// <summary>
 /// Adds the two FP numbers together.
 /// </summary>
-static FP_LONG FP64_Add(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Add(FP_LONG a, FP_LONG b) {
     return a + b;
 }
 
 /// <summary>
 /// Subtracts the two FP numbers from each other.
 /// </summary>
-static FP_LONG FP64_Sub(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Sub(FP_LONG a, FP_LONG b) {
     return a - b;
 }
 
 /// <summary>
 /// Multiplies two FP values together.
 /// </summary>
-static FP_LONG FP64_Mul(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Mul(FP_LONG a, FP_LONG b) {
 #if defined(__SIZEOF_INT128__) && !defined(__ppc64le__)
     return (FP_LONG)(((__int128_t)a * (__int128_t)b) >> FP64_Shift);
 #endif
@@ -252,14 +252,14 @@ static FP_LONG FP64_Mul(FP_LONG a, FP_LONG b) {
     return LogicalShiftRight(af * bf, FP64_Shift) + ai * b + af * bi;
 }
 
-static FP_INT FP64_MulIntLongLow(FP_INT a, FP_LONG b) {
+static inline FP_INT FP64_MulIntLongLow(FP_INT a, FP_LONG b) {
     //FP_ASSERT(a >= 0);
     FP_INT bi = (FP_INT) (b >> FP64_Shift);
     FP_LONG bf = b & FractionMask;
     return (FP_INT) LogicalShiftRight(a * bf, FP64_Shift) + a * bi;
 }
 
-static FP_LONG FP64_MulIntLongLong(FP_INT a, FP_LONG b) {
+static inline FP_LONG FP64_MulIntLongLong(FP_INT a, FP_LONG b) {
     //FP_ASSERT(a >= 0);
     FP_LONG bi = b >> FP64_Shift;
     FP_LONG bf = b & FractionMask;
@@ -269,16 +269,16 @@ static FP_LONG FP64_MulIntLongLong(FP_INT a, FP_LONG b) {
 /// <summary>
 /// Linearly interpolate from a to b by t.
 /// </summary>
-static FP_LONG FP64_Lerp(FP_LONG a, FP_LONG b, FP_LONG t) {
+static inline FP_LONG FP64_Lerp(FP_LONG a, FP_LONG b, FP_LONG t) {
     return FP64_Mul(b - a, t) + a;
 }
 
-static FP_INT FP64_Nlz(FP_ULONG x) {
+static inline FP_INT FP64_Nlz(FP_ULONG x) {
     return __builtin_clzll(x); // Use the gcc built-in, it's much faster
 }
 
 // Divides a 128 bit int (u1:u0) by a 64 bit int (v)
-static FP_LONG Div128_64(FP_LONG u1, FP_LONG u0, FP_LONG v) {
+static inline FP_LONG Div128_64(FP_LONG u1, FP_LONG u0, FP_LONG v) {
     FP_LONG result;
 #if defined (__ppc64le__)
     FP_LONG q1;
@@ -364,7 +364,7 @@ static FP_LONG Div128_64(FP_LONG u1, FP_LONG u0, FP_LONG v) {
         : [Dh] "r"(u1), [Dl] "r"(u0), [Dv] "r"(v)
         // Clobbered Registers:
         // cr0 (Condition Register field 0) is modified by 'cmplw' and used by 'blt'.
-        : "cr0"        
+        : "cr0"
      );
 
     return result;
@@ -381,7 +381,7 @@ static FP_LONG Div128_64(FP_LONG u1, FP_LONG u0, FP_LONG v) {
 /// <summary>
 /// Divides two FP values.
 /// </summary>
-static FP_LONG FP64_DivPrecise(FP_LONG arg_a, FP_LONG arg_b) {
+static inline FP_LONG FP64_DivPrecise(FP_LONG arg_a, FP_LONG arg_b) {
 #ifdef __SIZEOF_INT128__
     return Div128_64(arg_a >> FP64_Shift, arg_a << FP64_Shift, arg_b);
     //return (FP_LONG)(((__int128)arg_a << FP64_Shift) / (__int128)arg_b);
@@ -390,7 +390,7 @@ static FP_LONG FP64_DivPrecise(FP_LONG arg_a, FP_LONG arg_b) {
 
     FP_LONG sign_dif = arg_a ^ arg_b;
 
-    static const FP_ULONG b = 0x100000000ll; // Number base (32 bits)
+    const FP_ULONG b = 0x100000000ll; // Number base (32 bits)
     FP_ULONG abs_arg_a = (FP_ULONG) ((arg_a < 0) ? -arg_a : arg_a);
     FP_ULONG u1 = abs_arg_a >> 32;
     FP_ULONG u0 = abs_arg_a << 32;
@@ -408,7 +408,7 @@ static FP_LONG FP64_DivPrecise(FP_LONG arg_a, FP_LONG arg_b) {
     FP_ULONG vn1 = v >> 32; // Break the divisor into two 32-bit digits
     FP_ULONG vn0 = v & 0xffffffffll;
 
-    FP_ULONG un32 = (u1 << s) | (u0 >> (64 - s)) & (FP_ULONG) ((FP_LONG) -s >> 63);
+    FP_ULONG un32 = (u1 << s) | ((u0 >> (64 - s)) & (FP_ULONG) ((FP_LONG) -s >> 63));
     FP_ULONG un10 = u0 << s; // FP64_Shift dividend left
 
     FP_ULONG un1 = un10 >> 32; // Break the right half of dividend into two digits
@@ -447,7 +447,7 @@ static FP_LONG FP64_DivPrecise(FP_LONG arg_a, FP_LONG arg_b) {
 /// <summary>
 /// Calculates division approximation.
 /// </summary>
-static FP_LONG FP64_Div(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Div(FP_LONG a, FP_LONG b) {
 #if defined(__SIZEOF_INT128__) && !defined(__ppc64le__)// Same as precise, because it's fast and precise
     /// This instruction might not work, because you cannot link C library when compiling for kernel, and
     /// this uses __idiv3 instruction
@@ -465,7 +465,7 @@ static FP_LONG FP64_Div(FP_LONG a, FP_LONG b) {
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) b);
     FP_INT n = (FP_INT) ShiftRight(b, offset + 2);
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
 
     // Polynomial approximation.
@@ -479,7 +479,7 @@ static FP_LONG FP64_Div(FP_LONG a, FP_LONG b) {
 /// <summary>
 /// Calculates division approximation.
 /// </summary>
-static FP_LONG FP64_DivFast(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_DivFast(FP_LONG a, FP_LONG b) {
     if (b == MinValue || b == 0) {
         InvalidArgument("Fixed64::DivFast", "b", b);
         return 0;
@@ -492,7 +492,7 @@ static FP_LONG FP64_DivFast(FP_LONG a, FP_LONG b) {
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) b);
     FP_INT n = (FP_INT) ShiftRight(b, offset + 2);
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
 
     // Polynomial approximation.
@@ -506,7 +506,7 @@ static FP_LONG FP64_DivFast(FP_LONG a, FP_LONG b) {
 /// <summary>
 /// Calculates division approximation.
 /// </summary>
-static FP_LONG FP64_DivFastest(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_DivFastest(FP_LONG a, FP_LONG b) {
     if (b == MinValue || b == 0) {
         InvalidArgument("Fixed64::DivFastest", "b", b);
         return 0;
@@ -519,7 +519,7 @@ static FP_LONG FP64_DivFastest(FP_LONG a, FP_LONG b) {
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) b);
     FP_INT n = (FP_INT) ShiftRight(b, offset + 2);
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
 
     // Polynomial approximation.
@@ -533,7 +533,7 @@ static FP_LONG FP64_DivFastest(FP_LONG a, FP_LONG b) {
 /// <summary>
 /// Divides two FP values and returns the modulus.
 /// </summary>
-static FP_LONG FP64_Mod(FP_LONG a, FP_LONG b) {
+static inline FP_LONG FP64_Mod(FP_LONG a, FP_LONG b) {
     if (b == 0) {
         InvalidArgument("Fixed64::Mod", "b", b);
         return 0;
@@ -545,7 +545,7 @@ static FP_LONG FP64_Mod(FP_LONG a, FP_LONG b) {
 /// <summary>
 /// Calculates the square root of the given number.
 /// </summary>
-static FP_LONG FP64_SqrtPrecise(FP_LONG a) {
+static inline FP_LONG FP64_SqrtPrecise(FP_LONG a) {
     // Adapted from https://github.com/chmike/fpsqrt
     if (a <= 0) {
         if (a < 0)
@@ -569,7 +569,7 @@ static FP_LONG FP64_SqrtPrecise(FP_LONG a) {
     return (FP_LONG) q;
 }
 
-static FP_LONG FP64_Sqrt(FP_LONG x) {
+static inline FP_LONG FP64_Sqrt(FP_LONG x) {
     // Return 0 for all non-positive values.
     if (x <= 0) {
         if (x < 0)
@@ -578,8 +578,8 @@ static FP_LONG FP64_Sqrt(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -596,7 +596,7 @@ static FP_LONG FP64_Sqrt(FP_LONG x) {
     return (offset >= 0) ? (yr << offset) : (yr >> -offset);
 }
 
-static FP_LONG FP64_SqrtFast(FP_LONG x) {
+static inline FP_LONG FP64_SqrtFast(FP_LONG x) {
     // Return 0 for all non-positive values.
     if (x <= 0) {
         if (x < 0)
@@ -605,8 +605,8 @@ static FP_LONG FP64_SqrtFast(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -623,7 +623,7 @@ static FP_LONG FP64_SqrtFast(FP_LONG x) {
     return (offset >= 0) ? (yr << offset) : (yr >> -offset);
 }
 
-static FP_LONG FP64_SqrtFastest(FP_LONG x) {
+static inline FP_LONG FP64_SqrtFastest(FP_LONG x) {
     // Return 0 for all non-positive values.
     if (x <= 0) {
         if (x < 0)
@@ -632,8 +632,8 @@ static FP_LONG FP64_SqrtFastest(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT SQRT2 = 1518500249; // sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -653,7 +653,7 @@ static FP_LONG FP64_SqrtFastest(FP_LONG x) {
 /// <summary>
 /// Calculates the reciprocal square root.
 /// </summary>
-static FP_LONG FP64_RSqrt(FP_LONG x) {
+static inline FP_LONG FP64_RSqrt(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::RSqrt", "x", x);
@@ -661,8 +661,8 @@ static FP_LONG FP64_RSqrt(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -682,7 +682,7 @@ static FP_LONG FP64_RSqrt(FP_LONG x) {
 /// <summary>
 /// Calculates the reciprocal square root.
 /// </summary>
-static FP_LONG FP64_RSqrtFast(FP_LONG x) {
+static inline FP_LONG FP64_RSqrtFast(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::RSqrtFast", "x", x);
@@ -690,8 +690,8 @@ static FP_LONG FP64_RSqrtFast(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -711,7 +711,7 @@ static FP_LONG FP64_RSqrtFast(FP_LONG x) {
 /// <summary>
 /// Calculates the reciprocal square root.
 /// </summary>
-static FP_LONG FP64_RSqrtFastest(FP_LONG x) {
+static inline FP_LONG FP64_RSqrtFastest(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::RSqrtFastest", "x", x);
@@ -719,8 +719,8 @@ static FP_LONG FP64_RSqrtFastest(FP_LONG x) {
     }
 
     // Constants (s2.30).
-    static const FP_INT ONE = (1 << 30);
-    static const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
+    const FP_INT ONE = (1 << 30);
+    const FP_INT HALF_SQRT2 = 759250125; // 0.5 * sqrt(2.0)
 
     // Normalize input into [1.0, 2.0( range (as s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
@@ -740,7 +740,7 @@ static FP_LONG FP64_RSqrtFastest(FP_LONG x) {
 /// <summary>
 /// Calculates reciprocal approximation.
 /// </summary>
-static FP_LONG FP64_Rcp(FP_LONG x) {
+static inline FP_LONG FP64_Rcp(FP_LONG x) {
     if (x == MinValue || x == 0) {
         InvalidArgument("Fixed64::Rcp", "x", x);
         return 0;
@@ -753,7 +753,7 @@ static FP_LONG FP64_Rcp(FP_LONG x) {
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) ShiftRight(x, offset + 2);
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
 
     // Polynomial approximation.
@@ -767,7 +767,7 @@ static FP_LONG FP64_Rcp(FP_LONG x) {
 /// <summary>
 /// Calculates reciprocal approximation.
 /// </summary>
-static FP_LONG FP64_RcpFast(FP_LONG x) {
+static inline FP_LONG FP64_RcpFast(FP_LONG x) {
     if (x == MinValue || x == 0) {
         InvalidArgument("Fixed64::RcpFast", "x", x);
         return 0;
@@ -780,7 +780,7 @@ static FP_LONG FP64_RcpFast(FP_LONG x) {
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) ShiftRight(x, offset + 2);
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
 
     // Polynomial approximation.
@@ -794,7 +794,7 @@ static FP_LONG FP64_RcpFast(FP_LONG x) {
 /// <summary>
 /// Calculates reciprocal approximation.
 /// </summary>
-static FP_LONG FP64_RcpFastest(FP_LONG x) {
+static inline FP_LONG FP64_RcpFastest(FP_LONG x) {
     if (x == MinValue || x == 0) {
         InvalidArgument("Fixed64::RcpFastest", "x", x);
         return 0;
@@ -805,7 +805,7 @@ static FP_LONG FP64_RcpFastest(FP_LONG x) {
     x *= sign;
 
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) ShiftRight(x, offset + 2);
     //FP_INT n = (FP_INT)(((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
@@ -821,7 +821,7 @@ static FP_LONG FP64_RcpFastest(FP_LONG x) {
 /// <summary>
 /// Calculates the base 2 exponent.
 /// </summary>
-static FP_LONG FP64_Exp2(FP_LONG x) {
+static inline FP_LONG FP64_Exp2(FP_LONG x) {
     // Handle values that would under or overflow.
     if (x >= 32 * One) return MaxValue;
     if (x <= -32 * One) return 0;
@@ -838,7 +838,7 @@ static FP_LONG FP64_Exp2(FP_LONG x) {
 /// <summary>
 /// Calculates the base 2 exponent.
 /// </summary>
-static FP_LONG FP64_Exp2Fast(FP_LONG x) {
+static inline FP_LONG FP64_Exp2Fast(FP_LONG x) {
     // Handle values that would under or overflow.
     if (x >= 32 * One) return MaxValue;
     if (x <= -32 * One) return 0;
@@ -855,7 +855,7 @@ static FP_LONG FP64_Exp2Fast(FP_LONG x) {
 /// <summary>
 /// Calculates the base 2 exponent.
 /// </summary>
-static FP_LONG Exp2Fastest(FP_LONG x) {
+static inline FP_LONG Exp2Fastest(FP_LONG x) {
     // Handle values that would under or overflow.
     if (x >= 32 * One) return MaxValue;
     if (x <= -32 * One) return 0;
@@ -869,23 +869,23 @@ static FP_LONG Exp2Fastest(FP_LONG x) {
     return (intPart >= 0) ? (y << intPart) : (y >> -intPart);
 }
 
-static FP_LONG FP64_Exp(FP_LONG x) {
+static inline FP_LONG FP64_Exp(FP_LONG x) {
     // e^x == 2^(x / ln(2))
     return FP64_Exp2(FP64_Mul(x, RCP_LN2));
 }
 
-static FP_LONG FP64_ExpFast(FP_LONG x) {
+static inline FP_LONG FP64_ExpFast(FP_LONG x) {
     // e^x == 2^(x / ln(2))
     return FP64_Exp2Fast(FP64_Mul(x, RCP_LN2));
 }
 
-static FP_LONG FP64_ExpFastest(FP_LONG x) {
+static inline FP_LONG FP64_ExpFastest(FP_LONG x) {
     // e^x == 2^(x / ln(2))
     return Exp2Fastest(FP64_Mul(x, RCP_LN2));
 }
 
 // Natural logarithm (base e).
-static FP_LONG FP64_Log(FP_LONG x) {
+static inline FP_LONG FP64_Log(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::Log", "x", x);
@@ -893,7 +893,7 @@ static FP_LONG FP64_Log(FP_LONG x) {
     }
 
     // Normalize value to range [1.0, 2.0( as s2.30 and extract exponent.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     //FP_ASSERT(n >= ONE);
@@ -903,7 +903,7 @@ static FP_LONG FP64_Log(FP_LONG x) {
     return (FP_LONG) offset * RCP_LOG2_E + y;
 }
 
-static FP_LONG FP64_LogFast(FP_LONG x) {
+static inline FP_LONG FP64_LogFast(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::LogFast", "x", x);
@@ -911,7 +911,7 @@ static FP_LONG FP64_LogFast(FP_LONG x) {
     }
 
     // Normalize value to range [1.0, 2.0( as s2.30 and extract exponent.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     //FP_ASSERT(n >= ONE);
@@ -921,7 +921,7 @@ static FP_LONG FP64_LogFast(FP_LONG x) {
     return (FP_LONG) offset * RCP_LOG2_E + y;
 }
 
-static FP_LONG FP64_LogFastest(FP_LONG x) {
+static inline FP_LONG FP64_LogFastest(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::LogFastest", "x", x);
@@ -929,7 +929,7 @@ static FP_LONG FP64_LogFastest(FP_LONG x) {
     }
 
     // Normalize value to range [1.0, 2.0( as s2.30 and extract exponent.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     //FP_ASSERT(n >= ONE);
@@ -939,7 +939,7 @@ static FP_LONG FP64_LogFastest(FP_LONG x) {
     return (FP_LONG) offset * RCP_LOG2_E + y;
 }
 
-static FP_LONG FP64_Log2(FP_LONG x) {
+static inline FP_LONG FP64_Log2(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::Log2", "x", x);
@@ -951,7 +951,7 @@ static FP_LONG FP64_Log2(FP_LONG x) {
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
 
     // Polynomial approximation of mantissa.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
     FP_LONG y = (FP_LONG) Log2Poly4Lut16(n - ONE) << 2;
 
@@ -959,7 +959,7 @@ static FP_LONG FP64_Log2(FP_LONG x) {
     return ((FP_LONG) offset << FP64_Shift) + y;
 }
 
-static FP_LONG FP64_Log2Fast(FP_LONG x) {
+static inline FP_LONG FP64_Log2Fast(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::Log2Fast", "x", x);
@@ -971,7 +971,7 @@ static FP_LONG FP64_Log2Fast(FP_LONG x) {
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
 
     // Polynomial approximation of mantissa.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
     FP_LONG y = (FP_LONG) Log2Poly3Lut16(n - ONE) << 2;
 
@@ -979,7 +979,7 @@ static FP_LONG FP64_Log2Fast(FP_LONG x) {
     return ((FP_LONG) offset << FP64_Shift) + y;
 }
 
-static FP_LONG FP64_Log2Fastest(FP_LONG x) {
+static inline FP_LONG FP64_Log2Fastest(FP_LONG x) {
     // Return 0 for invalid values
     if (x <= 0) {
         InvalidArgument("Fixed64::Log2Fastest", "x", x);
@@ -991,7 +991,7 @@ static FP_LONG FP64_Log2Fastest(FP_LONG x) {
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
 
     // Polynomial approximation of mantissa.
-    static const FP_INT ONE = (1 << 30);
+    const FP_INT ONE = (1 << 30);
     //FP_ASSERT(n >= ONE);
     FP_LONG y = (FP_LONG) Log2Poly5(n - ONE) << 2;
 
@@ -1002,7 +1002,7 @@ static FP_LONG FP64_Log2Fastest(FP_LONG x) {
 /// <summary>
 /// Calculates x to the power of the exponent.
 /// </summary>
-static FP_LONG FP64_Pow(FP_LONG x, FP_LONG exponent) {
+static inline FP_LONG FP64_Pow(FP_LONG x, FP_LONG exponent) {
     // Return 0 for invalid values
     if (x <= 0) {
         if (x < 0)
@@ -1016,7 +1016,7 @@ static FP_LONG FP64_Pow(FP_LONG x, FP_LONG exponent) {
 /// <summary>
 /// Calculates x to the power of the exponent.
 /// </summary>
-static FP_LONG FP64_PowFast(FP_LONG x, FP_LONG exponent) {
+static inline FP_LONG FP64_PowFast(FP_LONG x, FP_LONG exponent) {
     // Return 0 for invalid values
     if (x <= 0) {
         if (x < 0)
@@ -1030,7 +1030,7 @@ static FP_LONG FP64_PowFast(FP_LONG x, FP_LONG exponent) {
 /// <summary>
 /// Calculates x to the power of the exponent.
 /// </summary>
-static FP_LONG FP64_PowFastest(FP_LONG x, FP_LONG exponent) {
+static inline FP_LONG FP64_PowFastest(FP_LONG x, FP_LONG exponent) {
     // Return 0 for invalid values
     if (x <= 0) {
         if (x < 0)
@@ -1041,7 +1041,7 @@ static FP_LONG FP64_PowFastest(FP_LONG x, FP_LONG exponent) {
     return FP64_ExpFastest(FP64_Mul(exponent, FP64_LogFastest(x)));
 }
 
-static FP_INT FP64_UnitSin(FP_INT z) {
+static inline FP_INT FP64_UnitSin(FP_INT z) {
     // See: http://www.coranac.com/2009/07/sines/
 
     // Handle quadrants 1 and 2 by mirroring the [1, 3] range to [-1, 1] (by calculating 2 - z).
@@ -1050,7 +1050,7 @@ static FP_INT FP64_UnitSin(FP_INT z) {
         z = (1 << 31) - z;
 
     // Now z is in range [-1, 1].
-    //static const FP_INT ONE = (1 << 30);
+    //const FP_INT ONE = (1 << 30);
     //FP_ASSERT((z >= -ONE) && (z <= ONE));
 
     // Polynomial approximation.
@@ -1061,7 +1061,7 @@ static FP_INT FP64_UnitSin(FP_INT z) {
     return res;
 }
 
-static FP_INT FP64_UnitSinFast(FP_INT z) {
+static inline FP_INT FP64_UnitSinFast(FP_INT z) {
     // See: http://www.coranac.com/2009/07/sines/
 
     // Handle quadrants 1 and 2 by mirroring the [1, 3] range to [-1, 1] (by calculating 2 - z).
@@ -1070,7 +1070,7 @@ static FP_INT FP64_UnitSinFast(FP_INT z) {
         z = (1 << 31) - z;
 
     // Now z is in range [-1, 1].
-    //static const FP_INT ONE = (1 << 30);
+    //const FP_INT ONE = (1 << 30);
     //FP_ASSERT((z >= -ONE) && (z <= ONE));
 
     // Polynomial approximation.
@@ -1081,7 +1081,7 @@ static FP_INT FP64_UnitSinFast(FP_INT z) {
     return res;
 }
 
-static FP_INT FP64_UnitSinFastest(FP_INT z) {
+static inline FP_INT FP64_UnitSinFastest(FP_INT z) {
     // See: http://www.coranac.com/2009/07/sines/
 
     // Handle quadrants 1 and 2 by mirroring the [1, 3] range to [-1, 1] (by calculating 2 - z).
@@ -1090,7 +1090,7 @@ static FP_INT FP64_UnitSinFastest(FP_INT z) {
         z = (1 << 31) - z;
 
     // Now z is in range [-1, 1].
-    //static const FP_INT ONE = (1 << 30);
+    //const FP_INT ONE = (1 << 30);
     //FP_ASSERT((z >= -ONE) && (z <= ONE));
 
     // Polynomial approximation.
@@ -1101,7 +1101,7 @@ static FP_INT FP64_UnitSinFastest(FP_INT z) {
     return res;
 }
 
-static FP_LONG FP64_Sin(FP_LONG x) {
+static inline FP_LONG FP64_Sin(FP_LONG x) {
     // Map [0, 2pi] to [0, 4] (as s2.30).
     // This also wraps the values into one period.
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
@@ -1110,7 +1110,7 @@ static FP_LONG FP64_Sin(FP_LONG x) {
     return (FP_LONG) FP64_UnitSin(z) << 2;
 }
 
-static FP_LONG FP64_SinFast(FP_LONG x) {
+static inline FP_LONG FP64_SinFast(FP_LONG x) {
     // Map [0, 2pi] to [0, 4] (as s2.30).
     // This also wraps the values into one period.
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
@@ -1119,7 +1119,7 @@ static FP_LONG FP64_SinFast(FP_LONG x) {
     return (FP_LONG) FP64_UnitSinFast(z) << 2;
 }
 
-static FP_LONG FP64_SinFastest(FP_LONG x) {
+static inline FP_LONG FP64_SinFastest(FP_LONG x) {
     // Map [0, 2pi] to [0, 4] (as s2.30).
     // This also wraps the values into one period.
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
@@ -1128,45 +1128,45 @@ static FP_LONG FP64_SinFastest(FP_LONG x) {
     return (FP_LONG) FP64_UnitSinFastest(z) << 2;
 }
 
-static FP_LONG FP64_Cos(FP_LONG x) {
+static inline FP_LONG FP64_Cos(FP_LONG x) {
     return FP64_Sin(x + PiHalf);
 }
 
-static FP_LONG FP64_CosFast(FP_LONG x) {
+static inline FP_LONG FP64_CosFast(FP_LONG x) {
     return FP64_SinFast(x + PiHalf);
 }
 
-static FP_LONG FP64_CosFastest(FP_LONG x) {
+static inline FP_LONG FP64_CosFastest(FP_LONG x) {
     return FP64_SinFastest(x + PiHalf);
 }
 
-static FP_LONG FP64_Tan(FP_LONG x) {
+static inline FP_LONG FP64_Tan(FP_LONG x) {
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
     FP_LONG sinX = (FP_LONG) FP64_UnitSin(z) << 32;
     FP_LONG cosX = (FP_LONG) FP64_UnitSin(z + (1 << 30)) << 32;
     return FP64_Div(sinX, cosX);
 }
 
-static FP_LONG FP64_TanFast(FP_LONG x) {
+static inline FP_LONG FP64_TanFast(FP_LONG x) {
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
     FP_LONG sinX = (FP_LONG) FP64_UnitSinFast(z) << 32;
     FP_LONG cosX = (FP_LONG) FP64_UnitSinFast(z + (1 << 30)) << 32;
     return FP64_DivFast(sinX, cosX);
 }
 
-static FP_LONG FP64_TanFastest(FP_LONG x) {
+static inline FP_LONG FP64_TanFastest(FP_LONG x) {
     FP_INT z = FP64_MulIntLongLow(RCP_HALF_PI, x);
     FP_LONG sinX = (FP_LONG) FP64_UnitSinFastest(z) << 32;
     FP_LONG cosX = (FP_LONG) FP64_UnitSinFastest(z + (1 << 30)) << 32;
     return FP64_DivFastest(sinX, cosX);
 }
 
-static FP_INT FP64_Atan2Div(FP_LONG y, FP_LONG x) {
+static inline FP_INT FP64_Atan2Div(FP_LONG y, FP_LONG x) {
     //FP_ASSERT(y >= 0 && x > 0 && x >= y);
 
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
-    static const FP_INT ONE = (1 << 30);
-    //static const FP_INT HALF = (1 << 29);
+    const FP_INT ONE = (1 << 30);
+    //const FP_INT HALF = (1 << 29);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     FP_INT k = n - ONE;
@@ -1180,7 +1180,7 @@ static FP_INT FP64_Atan2Div(FP_LONG y, FP_LONG x) {
     return Qmul30((FP_INT) (yr >> 2), oox);
 }
 
-static FP_LONG FP64_Atan2(FP_LONG y, FP_LONG x) {
+static inline FP_LONG FP64_Atan2(FP_LONG y, FP_LONG x) {
     // See: https://www.dsprelated.com/showarticle/1052.php
 
     if (x == 0) {
@@ -1211,12 +1211,12 @@ static FP_LONG FP64_Atan2(FP_LONG y, FP_LONG x) {
     }
 }
 
-static FP_INT FP64_Atan2DivFast(FP_LONG y, FP_LONG x) {
+static inline FP_INT FP64_Atan2DivFast(FP_LONG y, FP_LONG x) {
     //FP_ASSERT(y >= 0 && x > 0 && x >= y);
 
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
-    static const FP_INT ONE = (1 << 30);
-    //static const FP_INT HALF = (1 << 29);
+    const FP_INT ONE = (1 << 30);
+    //const FP_INT HALF = (1 << 29);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     FP_INT k = n - ONE;
@@ -1230,7 +1230,7 @@ static FP_INT FP64_Atan2DivFast(FP_LONG y, FP_LONG x) {
     return Qmul30((FP_INT) (yr >> 2), oox);
 }
 
-static FP_LONG FP64_Atan2Fast(FP_LONG y, FP_LONG x) {
+static inline FP_LONG FP64_Atan2Fast(FP_LONG y, FP_LONG x) {
     // See: https://www.dsprelated.com/showarticle/1052.php
 
     if (x == 0) {
@@ -1261,12 +1261,12 @@ static FP_LONG FP64_Atan2Fast(FP_LONG y, FP_LONG x) {
     }
 }
 
-static FP_INT FP64_Atan2DivFastest(FP_LONG y, FP_LONG x) {
+static inline FP_INT FP64_Atan2DivFastest(FP_LONG y, FP_LONG x) {
     //FP_ASSERT(y >= 0 && x > 0 && x >= y);
 
     // Normalize input into [1.0, 2.0( range (convert to s2.30).
-    static const FP_INT ONE = (1 << 30);
-    //static const FP_INT HALF = (1 << 29);
+    const FP_INT ONE = (1 << 30);
+    //const FP_INT HALF = (1 << 29);
     FP_INT offset = 31 - FP64_Nlz((FP_ULONG) x);
     FP_INT n = (FP_INT) (((offset >= 0) ? (x >> offset) : (x << -offset)) >> 2);
     FP_INT k = n - ONE;
@@ -1280,7 +1280,7 @@ static FP_INT FP64_Atan2DivFastest(FP_LONG y, FP_LONG x) {
     return Qmul30((FP_INT) (yr >> 2), oox);
 }
 
-static FP_LONG FP64_Atan2Fastest(FP_LONG y, FP_LONG x) {
+static inline FP_LONG FP64_Atan2Fastest(FP_LONG y, FP_LONG x) {
     // See: https://www.dsprelated.com/showarticle/1052.php
 
     if (x == 0) {
@@ -1311,7 +1311,7 @@ static FP_LONG FP64_Atan2Fastest(FP_LONG y, FP_LONG x) {
     }
 }
 
-static FP_LONG FP64_Asin(FP_LONG x) {
+static inline FP_LONG FP64_Asin(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::Asin", "x", x);
@@ -1321,7 +1321,7 @@ static FP_LONG FP64_Asin(FP_LONG x) {
     return FP64_Atan2(x, FP64_Sqrt(FP64_Mul(One + x, One - x)));
 }
 
-static FP_LONG FP64_AsinFast(FP_LONG x) {
+static inline FP_LONG FP64_AsinFast(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::AsinFast", "x", x);
@@ -1331,7 +1331,7 @@ static FP_LONG FP64_AsinFast(FP_LONG x) {
     return FP64_Atan2Fast(x, FP64_SqrtFast(FP64_Mul(One + x, One - x)));
 }
 
-static FP_LONG FP64_AsinFastest(FP_LONG x) {
+static inline FP_LONG FP64_AsinFastest(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::AsinFastest", "x", x);
@@ -1341,7 +1341,7 @@ static FP_LONG FP64_AsinFastest(FP_LONG x) {
     return FP64_Atan2Fastest(x, FP64_SqrtFastest(FP64_Mul(One + x, One - x)));
 }
 
-static FP_LONG FP64_Acos(FP_LONG x) {
+static inline FP_LONG FP64_Acos(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::Acos", "x", x);
@@ -1351,7 +1351,7 @@ static FP_LONG FP64_Acos(FP_LONG x) {
     return FP64_Atan2(FP64_Sqrt(FP64_Mul(One + x, One - x)), x);
 }
 
-static FP_LONG FP64_AcosFast(FP_LONG x) {
+static inline FP_LONG FP64_AcosFast(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::AcosFast", "x", x);
@@ -1361,7 +1361,7 @@ static FP_LONG FP64_AcosFast(FP_LONG x) {
     return FP64_Atan2Fast(FP64_SqrtFast(FP64_Mul(One + x, One - x)), x);
 }
 
-static FP_LONG FP64_AcosFastest(FP_LONG x) {
+static inline FP_LONG FP64_AcosFastest(FP_LONG x) {
     // Return 0 for invalid values
     if (x < -One || x > One) {
         InvalidArgument("Fixed64::AcosFastest", "x", x);
@@ -1371,19 +1371,19 @@ static FP_LONG FP64_AcosFastest(FP_LONG x) {
     return FP64_Atan2Fastest(FP64_SqrtFastest(FP64_Mul(One + x, One - x)), x);
 }
 
-static FP_LONG FP64_Atan(FP_LONG x) {
+static inline FP_LONG FP64_Atan(FP_LONG x) {
     return FP64_Atan2(x, One);
 }
 
-static FP_LONG FP64_AtanFast(FP_LONG x) {
+static inline FP_LONG FP64_AtanFast(FP_LONG x) {
     return FP64_Atan2Fast(x, One);
 }
 
-static FP_LONG FP64_AtanFastest(FP_LONG x) {
+static inline FP_LONG FP64_AtanFastest(FP_LONG x) {
     return FP64_Atan2Fastest(x, One);
 }
 
-static FP_LONG FP64_Tanh(FP_LONG x) {
+static inline FP_LONG FP64_Tanh(FP_LONG x) {
     // tanh(x) = 1 - 2 / (1 + exp(2x))
     FP_LONG two_x = x << 1;
     // This is safe for big x values because FP64_Exp 'clamps'
@@ -1397,7 +1397,7 @@ static FP_LONG FP64_Tanh(FP_LONG x) {
 // Fixed-point ilogb: returns the unbiased base-2 exponent of the value.
 // Behavior on special cases:
 //  - x == 0: returns INT_MIN (analogous to FP_ILOGB0)
-static int FP64_Ilogb(FP_LONG x)
+static inline int FP64_Ilogb(FP_LONG x)
 {
     if (x == 0) {
         return INT_MIN; // ilogb(0)
@@ -1421,7 +1421,7 @@ static int FP64_Ilogb(FP_LONG x)
 // Fixed-point scalbn: scales by 2^n with saturation.
 // For n >= 0: left shift with overflow saturation.
 // For n < 0: right shift with truncation toward zero.
-static FP_LONG FP64_Scalbn(FP_LONG x, int n)
+static inline FP_LONG FP64_Scalbn(FP_LONG x, int n)
 {
     if (x == 0 || n == 0) {
         return x;
@@ -1473,7 +1473,7 @@ static const uint64_t FP_64_scales[10] = {
         1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
 };
 
-static char *FP_64_itoa_loop(char *buf, uint64_t scale, uint64_t value, int skip) {
+static inline char *FP_64_itoa_loop(char *buf, uint64_t scale, uint64_t value, int skip) {
     while (scale) {
         unsigned digit = (value / scale);
 
@@ -1488,7 +1488,7 @@ static char *FP_64_itoa_loop(char *buf, uint64_t scale, uint64_t value, int skip
     return buf;
 }
 
-static void FP64_ToString(FP_LONG value, char *buf, int decimals) {
+static inline void FP64_ToString(FP_LONG value, char *buf, int decimals) {
     uint64_t uvalue = (value >= 0) ? value : -value;
     if (value < 0)
         *buf++ = '-';
@@ -1523,7 +1523,7 @@ static void FP64_ToString(FP_LONG value, char *buf, int decimals) {
 #define _isspace(c) (c == ' ' || c == '\t' || c == '\n')
 
 // Returns the number of converted bytes
-static int FP64_FromString(const char *buf, FP_LONG *val) {
+static inline int FP64_FromString(const char *buf, FP_LONG *val) {
     const char* start_pos = buf;
     while (_isspace(*buf))
         buf++;

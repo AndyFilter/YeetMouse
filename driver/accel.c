@@ -85,18 +85,7 @@ FP_LONG g_LutData_x[MAX_LUT_ARRAY_SIZE]; // Array to store the x-values of the L
 FP_LONG g_LutData_y[MAX_LUT_ARRAY_SIZE]; // Array to store the y-values of the LUT data
 
 // Converts given string to a unsigned long
-unsigned long atoul(const char *str) {
-    unsigned long result = 0;
-    int i = 0;
-
-    // Iterate through the string, converting each digit to an integer
-    while (str[i] >= '0' && str[i] <= '9') {
-        result = result * 10 + (str[i] - '0');
-        i++;
-    }
-
-    return result;
-}
+unsigned long atoul(const char *str);
 
 // Updates the acceleration parameters. This is purposely done with a delay!
 // First, to not hammer too much the logic in "accelerate()", which is called VERY OFTEN!
@@ -361,4 +350,17 @@ int accelerate(int *x, int *y)
     // }
 
     return status;
+}
+
+unsigned long atoul(const char *str) {
+    unsigned long result = 0;
+    int i = 0;
+
+    // Iterate through the string, converting each digit to an integer
+    while (str[i] >= '0' && str[i] <= '9') {
+        result = result * 10 + (str[i] - '0');
+        i++;
+    }
+
+    return result;
 }

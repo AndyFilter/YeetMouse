@@ -1,6 +1,8 @@
 obj-m += yeetmouse.o
 yeetmouse-objs := accel.o driver.o accel_modes.o
 
+CFLAGS_driver.o += -Wno-missing-prototypes -Wno-missing-declarations
+
 # Detect architecture
 ARCH := $(shell uname -m)
 
@@ -13,6 +15,3 @@ ifeq ($(ARCH), ppc64le)
 endif
 
 #ccflags-y += -mhard-float
-
-all:
-	cp -n config.sample.h config.h

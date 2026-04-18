@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++17 -I . -isystem External
 
 # ImPlot has few of these
 IMGUIFLAGS = -Wformat=0 -Wno-format-security
-WARNFLAGS = -Wall -Wextra -pedantic -Wnon-virtual-dtor -Woverloaded-virtual -Wno-sign-compare -Wno-unused-parameter
+WARNFLAGS = -Wall -Wextra -pedantic -Wnon-virtual-dtor -Woverloaded-virtual -Wmisleading-indentation -Wno-sign-compare -Wno-unused-parameter
 
 ifneq (,$(findstring clang,$(CXX)))
     # ImGui produces many of these

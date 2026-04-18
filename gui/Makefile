@@ -4,12 +4,14 @@ CXXFLAGS = -std=c++17 -I . -isystem External
 
 # ImPlot has few of these
 IMGUIFLAGS = -Wformat=0 -Wno-format-security
+WARNFLAGS = -Wall -Wextra -pedantic -Wno-sign-compare -Wno-unused-parameter
+
 ifneq (,$(findstring clang,$(CXX)))
     # ImGui produces many of these
     IMGUIFLAGS += -Wno-nontrivial-memcall
+    WARNFLAGS += -Wno-overlength-strings
 endif
 
-WARNFLAGS = -Wall -Wextra -pedantic -Wno-sign-compare -Wno-unused-parameter
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
 

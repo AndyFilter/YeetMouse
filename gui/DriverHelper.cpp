@@ -152,7 +152,7 @@ namespace DriverHelper {
     }
 
     bool SaveParameters() {
-        return SetParameterTy("update", (int) 1);
+        return SetParameterTy("update", 1);
     }
 
     bool SavePersistentParameters() {

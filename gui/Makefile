@@ -7,7 +7,7 @@ IMGUIFLAGS = -Wformat=0 -Wno-format-security
 WARNFLAGS = -Wall -Wextra -pedantic -Wnon-virtual-dtor -Woverloaded-virtual -Wmisleading-indentation -Wno-sign-compare -Wno-unused-parameter
 
 ifeq (g++, $(CXX))
-    WARNFLAGS += -Wduplicated-cond -Wduplicated-branches
+    WARNFLAGS += -Wduplicated-cond -Wduplicated-branches -Wuseless-cast
 endif
 
 ifneq (,$(findstring clang,$(CXX)))

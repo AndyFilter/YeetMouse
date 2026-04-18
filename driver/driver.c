@@ -174,7 +174,7 @@ static bool driver_match(struct input_handler *handler, struct input_dev *dev) {
 }
 
 /* Same as Linux's input_register_handle but we always add the handle to the head of handlers */
-int input_register_handle_head(struct input_handle *handle) {
+static int input_register_handle_head(struct input_handle *handle) {
     struct input_handler *handler = handle->handler;
     struct input_dev *dev = handle->dev;
 

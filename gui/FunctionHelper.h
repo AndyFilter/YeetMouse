@@ -53,7 +53,7 @@ private:
         static constexpr bool velocity = true;
 
         std::vector<double> data;
-        double xStart;
+        double xStart = 1.0;
     } synchronous_data;
 
     bool SynchronousBuildLUT();

@@ -9,7 +9,7 @@ ifneq (,$(findstring clang,$(CXX)))
     IMGUIFLAGS += -Wno-nontrivial-memcall
 endif
 
-WARNFLAGS = -Wall -Wno-sign-compare
+WARNFLAGS = -Wall -Wextra -Wno-sign-compare
 OPTIMIZATION_FLAGS = -O2 -flto=auto
 DEBUG_FLAGS = -g -O0
 

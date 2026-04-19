@@ -13,7 +13,7 @@ endif
 ifneq (,$(findstring clang,$(CXX)))
     # ImGui produces many of these
     IMGUIFLAGS += -Wno-nontrivial-memcall
-    WARNFLAGS += -Wstring-conversion -Wno-overlength-strings
+    WARNFLAGS += -Wstring-conversion -Wsuggest-override -Wno-overlength-strings
 endif
 
 OPTIMIZATION_FLAGS = -O2 -flto=auto

@@ -32,7 +32,8 @@ jobs:
 
       - name: Build tests
         run: |
-          cmake -S tests -B tests/build
+          # TODO: Use UBSan as well
+          cmake -DYEETMOUSETESTS_ASAN=ON -DYEETMOUSETESTS_NO_SANITIZE_RECOVER=ON -S tests -B tests/build
           cmake --build tests/build
         if: ${{ !cancelled() }}
 

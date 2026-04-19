@@ -22,7 +22,7 @@ public:
     CachedFunction(float xStride, Parameters *params);
 
     CachedFunction() {
-    };
+    }
 
     float EvalFuncAt(float x) const;
 

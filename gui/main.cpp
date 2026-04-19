@@ -47,7 +47,7 @@ void ResetParameters();
                             if(selected_device >= devices.size())    \
                             selected_device = devices.size() - 1;}
 
-int OnGui() {
+static int OnGui() {
     using namespace std::chrono;
 
     ImGuiContext &g = *GImGui;

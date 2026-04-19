@@ -14,7 +14,7 @@
 #include <ImGui/implot.h>
 
 template<typename Ty>
-bool GetParameterTy(const std::string &param_name, Ty &value) {
+static bool GetParameterTy(const std::string &param_name, Ty &value) {
     try {
         using namespace std;
         ifstream file(YEETMOUSE_PARAMS_DIR + param_name);
@@ -31,7 +31,7 @@ bool GetParameterTy(const std::string &param_name, Ty &value) {
     }
 }
 
-bool GetParameterTy(const std::string &param_name, std::string &value) {
+static bool GetParameterTy(const std::string &param_name, std::string &value) {
     try {
         using namespace std;
         ifstream file(YEETMOUSE_PARAMS_DIR + param_name);

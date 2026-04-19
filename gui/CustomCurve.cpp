@@ -27,7 +27,7 @@ void CustomCurve::ApplyCurveConstraints() {
 }
 
 // Cubic Bezier derivatives
-ImVec2 BezierFirstOrderDerivative(ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3, float t) {
+static ImVec2 BezierFirstOrderDerivative(ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3, float t) {
     float u = (1 - t);
     float w1 = 3 * (u * u);
     float w2 = 6 * (u * t);
@@ -35,7 +35,7 @@ ImVec2 BezierFirstOrderDerivative(ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3, fl
     return ((p1 - p0) * w1) + ((p2 - p1) * w2) + ((p3 - p2) * w3);
 }
 
-ImVec2 BezierSecondOrderDerivative(ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3, float t) {
+static ImVec2 BezierSecondOrderDerivative(ImVec2 p0, ImVec2 p1, ImVec2 p2, ImVec2 p3, float t) {
     float u = (1 - t);
     float w1 = 6 * u;
     float w2 = 6 * t;

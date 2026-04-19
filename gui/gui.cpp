@@ -17,7 +17,7 @@ static void glfw_error_callback(int error, const char* description)
 
 // Use the default initialization that comes with ImGui as an Example
 
-void SetupImGuiStyle()
+static void SetupImGuiStyle()
 {
     // nice dark style from ImThemes
     ImGuiStyle& style = ImGui::GetStyle();

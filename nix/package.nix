@@ -34,7 +34,7 @@ let
       llvmPackages_21.llvm
     ];
     buildInputs = [
-      stdenv.cc.cc.lib
+      pkgs.stdenv.cc.cc
       pkgs.glfw3
     ];
 

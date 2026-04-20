@@ -55,10 +55,13 @@ let
 
     LD_LIBRARY_PATH = "/run/opengl-driver/lib:${lib.makeLibraryPath buildInputs}";
 
+
     postBuild = ''
-      make "-j$NIX_BUILD_CORES" -C $sourceRoot/gui "M=$sourceRoot/gui" \
-        "LIBS=-lglfw -lGL" \
-        "CXXFLAGS=-Wno-sign-compare -Wno-unused-function -Wno-return-type -isystem $sourceRoot/gui/External"
+      make -j$NIX_BUILD_CORES -C $sourceRoot/gui \
+        CC=${pkgs.stdenv.cc}/bin/cc \
+        CXX=${pkgs.stdenv.cc}/bin/c++ \
+        LIBS="-lglfw -lGL" \
+        CXXFLAGS="-std=c++17 -isystem $sourceRoot/gui/External"
     '';
 
     postInstall = let

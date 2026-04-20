@@ -2,7 +2,6 @@
 pkgs @ {
   lib,
   bash,
-  stdenv,
   coreutils,
   writeShellScript,
   makeDesktopItem,
@@ -12,6 +11,7 @@ pkgs @ {
 }:
 
 let
+  stdenv = pkgs.llvmPackages_21.stdenv;
   mkPackage = overrides @ {
     kernel,
     ...
@@ -29,18 +29,29 @@ let
       makeWrapper
       autoPatchelfHook
       copyDesktopItems
+      llvmPackages_21.clang-unwrapped
+      llvmPackages_21.lld
+      llvmPackages_21.llvm
     ];
     buildInputs = [
       stdenv.cc.cc.lib
       pkgs.glfw3
     ];
 
-    makeFlags = kernelModuleMakeFlags ++ [
-      "KBUILD_OUTPUT=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
-      "-C"
-      "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
-      "M=$(sourceRoot)/driver"
-    ];
+      makeFlags = [
+        "LLVM=1"
+        "LLVM_IAS=1"
+
+        "CC=${pkgs.llvmPackages_21.clang-unwrapped}/bin/clang"
+        "HOSTCC=${pkgs.llvmPackages_21.clang-unwrapped}/bin/clang"
+
+        "LD=ld.lld"
+        "HOSTLD=ld.lld"
+
+        "-C"
+        "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
+        "M=$(sourceRoot)/driver"
+      ];
 
     LD_LIBRARY_PATH = "/run/opengl-driver/lib:${lib.makeLibraryPath buildInputs}";
 

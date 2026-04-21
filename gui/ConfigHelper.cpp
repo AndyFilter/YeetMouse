@@ -3,7 +3,7 @@
 #include <optional>
 #include <unistd.h>
 
-char *OpenFile() {
+static char *OpenFile() {
     char *filename = new char[512];
     char cwd[1024];
     char command[2048] = R"(zenity --file-selection --title="Select a config file" 2> /dev/null)";
@@ -25,7 +25,7 @@ char *OpenFile() {
     return res;
 }
 
-char *SaveFile() {
+static char *SaveFile() {
     char *filename = new char[512];
     char cwd[1024];
     char command[2048] = R"(zenity --save --file-selection --title="Save Config" 2> /dev/null)";

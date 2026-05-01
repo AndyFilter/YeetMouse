@@ -18,9 +18,72 @@
 #define __cleanup_events 1
 #endif
 
+static ssize_t mouse_param_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t mouse_param_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count);
+
+#define FILE_PERMISSIONS (0660)
+
+// Manual definition since we aren't using the default <name>_show naming convention
+static struct device_attribute dev_attr_acceleration_mode = __ATTR(acceleration_mode, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+
+static struct device_attribute dev_attr_input_cap    = __ATTR(input_cap, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_sensitivity  = __ATTR(sensitivity,  FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_ratio_yx     = __ATTR(ratio_yx,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_output_cap   = __ATTR(output_cap,   FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_offset       = __ATTR(offset,       FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_prescale     = __ATTR(prescale,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_acceleration = __ATTR(acceleration, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_exponent     = __ATTR(exponent,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_midpoint     = __ATTR(midpoint,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_motivity     = __ATTR(motivity,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_use_smoothing = __ATTR(use_smoothing, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+
+static struct device_attribute dev_attr_lut_size = __ATTR(lut_size, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_lut_data = __ATTR(lut_data, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+
+static struct device_attribute dev_attr_cc_data_aggregate = __ATTR(cc_data_aggregate, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+
+static struct device_attribute dev_attr_rotation_angle = __ATTR(rotation_angle, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_angle_snap_threshold = __ATTR(angle_snap_threshold, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+static struct device_attribute dev_attr_angle_snap_angle = __ATTR(angle_snap_angle, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
+
+
+static struct attribute *mouse_attrs[] = {
+    &dev_attr_acceleration_mode.attr,
+    &dev_attr_input_cap.attr,
+    &dev_attr_ratio_yx.attr,
+    &dev_attr_output_cap.attr,
+    &dev_attr_offset.attr,
+    &dev_attr_prescale.attr,
+    &dev_attr_acceleration.attr,
+    &dev_attr_sensitivity.attr,
+    &dev_attr_exponent.attr,
+    &dev_attr_midpoint.attr,
+    &dev_attr_motivity.attr,
+    &dev_attr_use_smoothing.attr,
+    &dev_attr_lut_size.attr,
+    &dev_attr_lut_data.attr,
+    &dev_attr_cc_data_aggregate.attr,
+    &dev_attr_rotation_angle.attr,
+    &dev_attr_angle_snap_threshold.attr,
+    &dev_attr_angle_snap_angle.attr,
+    NULL,
+};
+
+static const struct attribute_group mouse_attr_group = {
+    .name = "accel_config",
+    .attrs = mouse_attrs,
+};
+
+static const struct attribute_group *mouse_groups[] = {
+    &mouse_attr_group,
+    NULL,
+};
+
 struct mouse_state {
     int x;
     int y;
+    struct accel_params *params;
 };
 
 #if __cleanup_events
@@ -69,6 +132,8 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     if (x == NONE_EVENT_VALUE && y == NONE_EVENT_VALUE)
         goto unchanged_return;
 
+    // Get the accel params
+    struct accel_params *params = state->params;
     error = accelerate(&x, &y);
     /* Reset state */
     state->x = NONE_EVENT_VALUE;
@@ -198,6 +263,7 @@ static int input_register_handle_head(struct input_handle *handle) {
 static int driver_connect(struct input_handler *handler, struct input_dev *dev, const struct input_device_id *id) {
     struct input_handle *handle;
     struct mouse_state *state;
+    struct accel_params *accel_config;
     int error;
 
     handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
@@ -208,6 +274,22 @@ static int driver_connect(struct input_handler *handler, struct input_dev *dev, 
     if (!state) {
         kfree(handle);
         return -ENOMEM;
+    }
+
+    accel_config = kzalloc(sizeof(struct accel_params), GFP_KERNEL);
+    if (!accel_config) {
+        kfree(handle);
+        kfree(state);
+        return -ENOMEM;
+    }
+    state->params = accel_config;
+
+    input_set_drvdata(dev, state);
+
+    error = sysfs_create_group(&dev->dev.kobj, &mouse_attr_group);
+    if (error) {
+        pr_err("Failed to create sysfs group: %d\n", error);
+        goto err_free_mem;
     }
 
     state->x = NONE_EVENT_VALUE;
@@ -246,7 +328,9 @@ err_free_mem:
 static void driver_disconnect(struct input_handle *handle) {
     input_close_device(handle);
     input_unregister_handle(handle);
+    kfree(((struct mouse_state*)handle->private)->params);
     kfree(handle->private);
+    sysfs_remove_group(&handle->dev->dev.kobj, &mouse_attr_group);
     kfree(handle);
 }
 
@@ -268,6 +352,106 @@ struct input_handler driver_handler = {
     .disconnect = driver_disconnect,
     .match = driver_match
 };
+
+static ssize_t mouse_param_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    struct input_dev *idev = to_input_dev(dev);
+    struct mouse_state *state = input_get_drvdata(idev);
+    if (!state) return -ENODEV;
+
+    struct accel_params *params = state->params;
+
+    if (attr == &dev_attr_acceleration_mode)
+        return sysfs_emit(buf, "%d\n", params->acceleration_mode);
+    if (attr == &dev_attr_input_cap)
+        return sysfs_emit(buf, "%lld\n", params->input_cap);
+    if (attr == &dev_attr_ratio_yx)
+        return sysfs_emit(buf, "%lld\n", params->ratio_yx);
+    if (attr == &dev_attr_output_cap)
+        return sysfs_emit(buf, "%lld\n", params->output_cap);
+    if (attr == &dev_attr_offset)
+        return sysfs_emit(buf, "%lld\n", params->offset);
+    if (attr == &dev_attr_prescale)
+        return sysfs_emit(buf, "%lld\n", params->prescale);
+    if (attr == &dev_attr_acceleration)
+        return sysfs_emit(buf, "%lld\n", params->acceleration);
+    if (attr == &dev_attr_sensitivity)
+        return sysfs_emit(buf, "%lld\n", params->sensitivity);
+    if (attr == &dev_attr_exponent)
+        return sysfs_emit(buf, "%lld\n", params->exponent);
+    if (attr == &dev_attr_midpoint)
+        return sysfs_emit(buf, "%lld\n", params->midpoint);
+    if (attr == &dev_attr_motivity)
+        return sysfs_emit(buf, "%lld\n", params->motivity);
+    if (attr == &dev_attr_use_smoothing)
+        return sysfs_emit(buf, "%d\n", params->use_smoothing);
+    if (attr == &dev_attr_lut_size)
+        return sysfs_emit(buf, "%lu\n", params->lut_size);
+    if (attr == &dev_attr_lut_data)
+        return sysfs_emit(buf, "%s\n", params->lut_data);
+    if (attr == &dev_attr_cc_data_aggregate)
+        return sysfs_emit(buf, "%s\n", params->cc_data_aggregate);
+    if (attr == &dev_attr_rotation_angle)
+        return sysfs_emit(buf, "%lld\n", params->rotation_angle);
+    if (attr == &dev_attr_angle_snap_threshold)
+        return sysfs_emit(buf, "%lld\n", params->angle_snap_threshold);
+    if (attr == &dev_attr_angle_snap_angle)
+        return sysfs_emit(buf, "%lld\n", params->angle_snap_angle);
+    return -EINVAL;
+}
+
+static ssize_t mouse_param_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+    struct input_dev *idev = to_input_dev(dev);
+    struct mouse_state *state = input_get_drvdata(idev);
+    if (!state) return -ENODEV;
+
+    struct accel_params *data = state->params;
+    long long val;
+    int ret;
+
+    ret = kstrtoll(buf, 10, &val);
+    if (ret) return ret;
+
+    if (attr == &dev_attr_acceleration_mode)
+        data->acceleration_mode = val;
+    else if (attr == &dev_attr_input_cap)
+        data->input_cap = val;
+    else if (attr == &dev_attr_ratio_yx)
+        data->ratio_yx = val;
+    else if (attr == &dev_attr_output_cap)
+        data->output_cap = val;
+    else if (attr == &dev_attr_offset)
+        data->offset = val;
+    else if (attr == &dev_attr_prescale)
+        data->prescale = val;
+    else if (attr == &dev_attr_acceleration)
+        data->acceleration = val;
+    else if (attr == &dev_attr_sensitivity)
+        data->sensitivity = val;
+    else if (attr == &dev_attr_exponent)
+        data->exponent = val;
+    else if (attr == &dev_attr_midpoint)
+        data->midpoint = val;
+    else if (attr == &dev_attr_motivity)
+        data->motivity = val;
+    else if (attr == &dev_attr_use_smoothing)
+        data->use_smoothing = val;
+    else if (attr == &dev_attr_lut_size)
+        data->lut_size = val;
+    else if (attr == &dev_attr_lut_data) {
+        // Call the parser
+    }
+    else if (attr == &dev_attr_cc_data_aggregate) {
+        // nop
+    }
+    else if (attr == &dev_attr_rotation_angle)
+        data->rotation_angle = val;
+    else if (attr == &dev_attr_angle_snap_threshold)
+        data->angle_snap_threshold = val;
+    else if (attr == &dev_attr_angle_snap_angle)
+        data->angle_snap_angle = val;
+
+    return count;
+}
 
 static int __init yeetmouse_init(void) {
     return input_register_handler(&driver_handler);

@@ -1,5 +1,13 @@
+#include "FixedMath/Fixed64.h"
 #include "accel.h"
-#include "util.h"
+#include "../shared_definitions.h"
+#include "accel_modes.h"
+#include "asm-generic/errno-base.h"
+#include "linux/device.h"
+#include "linux/device/class.h"
+#include "linux/input.h"
+#include "linux/mutex.h"
+#include "linux/printk.h"
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/hid.h>
@@ -38,7 +46,6 @@ static struct device_attribute dev_attr_midpoint     = __ATTR(midpoint,     FILE
 static struct device_attribute dev_attr_motivity     = __ATTR(motivity,     FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
 static struct device_attribute dev_attr_use_smoothing = __ATTR(use_smoothing, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
 
-static struct device_attribute dev_attr_lut_size = __ATTR(lut_size, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
 static struct device_attribute dev_attr_lut_data = __ATTR(lut_data, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
 
 static struct device_attribute dev_attr_cc_data_aggregate = __ATTR(cc_data_aggregate, FILE_PERMISSIONS, mouse_param_show, mouse_param_store);
@@ -61,7 +68,6 @@ static struct attribute *mouse_attrs[] = {
     &dev_attr_midpoint.attr,
     &dev_attr_motivity.attr,
     &dev_attr_use_smoothing.attr,
-    &dev_attr_lut_size.attr,
     &dev_attr_lut_data.attr,
     &dev_attr_cc_data_aggregate.attr,
     &dev_attr_rotation_angle.attr,
@@ -70,12 +76,14 @@ static struct attribute *mouse_attrs[] = {
     NULL,
 };
 
+static struct class *yeetmouse_class;
+
 static const struct attribute_group mouse_attr_group = {
     .name = "accel_config",
     .attrs = mouse_attrs,
 };
 
-static const struct attribute_group *mouse_groups[] = {
+static const struct attribute_group *mouse_attr_groups[] = {
     &mouse_attr_group,
     NULL,
 };
@@ -83,7 +91,11 @@ static const struct attribute_group *mouse_groups[] = {
 struct mouse_state {
     int x;
     int y;
-    struct accel_params *params;
+    struct accel_runtime rt;
+    struct ModesConstants modes_consts;
+    struct accel_params __rcu *params;
+    struct mutex writer;
+    struct device *class_dev;
 };
 
 #if __cleanup_events
@@ -132,9 +144,13 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     if (x == NONE_EVENT_VALUE && y == NONE_EVENT_VALUE)
         goto unchanged_return;
 
-    // Get the accel params
-    struct accel_params *params = state->params;
-    error = accelerate(&x, &y);
+    struct accel_params *params;
+
+    rcu_read_lock();
+    params = rcu_dereference(state->params);
+    error = accelerate(params, &state->rt, &state->modes_consts, &x, &y);
+    rcu_read_unlock();
+
     /* Reset state */
     state->x = NONE_EVENT_VALUE;
     state->y = NONE_EVENT_VALUE;
@@ -260,77 +276,108 @@ static int input_register_handle_head(struct input_handle *handle) {
     return 0;
 }
 
-static int driver_connect(struct input_handler *handler, struct input_dev *dev, const struct input_device_id *id) {
+static int driver_connect(struct input_handler *handler, struct input_dev *dev,
+                          const struct input_device_id *id)
+{
     struct input_handle *handle;
-    struct mouse_state *state;
+    struct mouse_state  *state;
     struct accel_params *accel_config;
     int error;
 
-    handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+    handle = kzalloc(sizeof(*handle), GFP_KERNEL);
     if (!handle)
         return -ENOMEM;
 
-    state = kzalloc(sizeof(struct mouse_state), GFP_KERNEL);
+    state = kzalloc(sizeof(*state), GFP_KERNEL);
     if (!state) {
-        kfree(handle);
-        return -ENOMEM;
+        error = -ENOMEM;
+        goto err_free_handle;
     }
+    mutex_init(&state->writer);
 
-    accel_config = kzalloc(sizeof(struct accel_params), GFP_KERNEL);
+    accel_config = kzalloc(sizeof(*accel_config), GFP_KERNEL);
     if (!accel_config) {
-        kfree(handle);
-        kfree(state);
-        return -ENOMEM;
+        error = -ENOMEM;
+        goto err_free_state;
     }
-    state->params = accel_config;
 
-    input_set_drvdata(dev, state);
+    accel_config->acceleration_mode = 1;
+    accel_config->sensitivity       = FP64_1;
+    accel_config->prescale          = FP64_1;
+    accel_config->acceleration      = FP64_1;
+    accel_config->ratio_yx          = FP64_1;
 
-    error = sysfs_create_group(&dev->dev.kobj, &mouse_attr_group);
-    if (error) {
-        pr_err("Failed to create sysfs group: %d\n", error);
-        goto err_free_mem;
-    }
+    state->modes_consts.current_func_at_0 = FP64_1;
+    update_constants(accel_config, &state->modes_consts);
+
+    rcu_assign_pointer(state->params, accel_config);
 
     state->x = NONE_EVENT_VALUE;
     state->y = NONE_EVENT_VALUE;
 
-    handle->private = state;
-    handle->dev = input_get_device(dev);
-    handle->handler = handler;
-    handle->name = "yeetmouse";
+    input_set_drvdata(dev, state);
 
-    /* WARN: Instead of `input_register_handle` we use a customized version of it here.
-     * This prepends the handler (like a filter) instead of appending it, making
-     * it take precedence over any other input handler that'll be added. */
+    char safe_name[64];
+    strscpy(safe_name, dev->name, sizeof(safe_name));
+    // Replace spaces with underscores
+    for (char *p = safe_name; *p; p++)
+        if (*p == ' ') *p = '_';
+
+    state->class_dev = device_create_with_groups(yeetmouse_class, &dev->dev,
+                                    MKDEV(0, 0), state,
+                                    mouse_attr_groups,
+                                    "%s", safe_name);
+
+    if (IS_ERR(state->class_dev)) {
+        error = PTR_ERR(state->class_dev);
+        goto err_clear_drvdata;
+    }
+
+    handle->private = state;
+    handle->dev     = input_get_device(dev);
+    handle->handler = handler;
+    handle->name    = "yeetmouse";
+
     error = input_register_handle_head(handle);
     if (error)
-        goto err_free_mem;
+        goto err_put_dev;
 
     error = input_open_device(handle);
     if (error)
         goto err_unregister_handle;
 
-    pr_info("connecting to device: %s (%s at %s)", dev_name(&dev->dev), dev->name ?: "unknown",
-           dev->phys ?: "unknown");
+    pr_info("connecting to device: %s (%s at %s)",
+            dev_name(&dev->dev), dev->name ?: "unknown", dev->phys ?: "unknown");
 
     return 0;
 
 err_unregister_handle:
     input_unregister_handle(handle);
-
-err_free_mem:
-    kfree(handle->private);
+err_put_dev:
+    input_put_device(handle->dev);
+    device_unregister(state->class_dev);
+err_clear_drvdata:
+    input_set_drvdata(dev, NULL);
+    kfree(accel_config);
+err_free_state:
+    mutex_destroy(&state->writer);
+    kfree(state);
+err_free_handle:
     kfree(handle);
     return error;
 }
 
 static void driver_disconnect(struct input_handle *handle) {
+    struct mouse_state *state = handle->private;
+
+    device_unregister(state->class_dev);
     input_close_device(handle);
     input_unregister_handle(handle);
-    kfree(((struct mouse_state*)handle->private)->params);
-    kfree(handle->private);
-    sysfs_remove_group(&handle->dev->dev.kobj, &mouse_attr_group);
+    input_put_device(handle->dev);
+
+    kfree_rcu(state->params, rcu);
+    mutex_destroy(&state->writer);
+    kfree(state);
     kfree(handle);
 }
 
@@ -358,107 +405,209 @@ static ssize_t mouse_param_show(struct device *dev, struct device_attribute *att
     struct mouse_state *state = input_get_drvdata(idev);
     if (!state) return -ENODEV;
 
-    struct accel_params *params = state->params;
+    int ret;
 
-    if (attr == &dev_attr_acceleration_mode)
-        return sysfs_emit(buf, "%d\n", params->acceleration_mode);
-    if (attr == &dev_attr_input_cap)
-        return sysfs_emit(buf, "%lld\n", params->input_cap);
-    if (attr == &dev_attr_ratio_yx)
-        return sysfs_emit(buf, "%lld\n", params->ratio_yx);
-    if (attr == &dev_attr_output_cap)
-        return sysfs_emit(buf, "%lld\n", params->output_cap);
-    if (attr == &dev_attr_offset)
-        return sysfs_emit(buf, "%lld\n", params->offset);
-    if (attr == &dev_attr_prescale)
-        return sysfs_emit(buf, "%lld\n", params->prescale);
-    if (attr == &dev_attr_acceleration)
-        return sysfs_emit(buf, "%lld\n", params->acceleration);
-    if (attr == &dev_attr_sensitivity)
-        return sysfs_emit(buf, "%lld\n", params->sensitivity);
-    if (attr == &dev_attr_exponent)
-        return sysfs_emit(buf, "%lld\n", params->exponent);
-    if (attr == &dev_attr_midpoint)
-        return sysfs_emit(buf, "%lld\n", params->midpoint);
-    if (attr == &dev_attr_motivity)
-        return sysfs_emit(buf, "%lld\n", params->motivity);
-    if (attr == &dev_attr_use_smoothing)
-        return sysfs_emit(buf, "%d\n", params->use_smoothing);
-    if (attr == &dev_attr_lut_size)
-        return sysfs_emit(buf, "%lu\n", params->lut_size);
-    if (attr == &dev_attr_lut_data)
-        return sysfs_emit(buf, "%s\n", params->lut_data);
-    if (attr == &dev_attr_cc_data_aggregate)
-        return sysfs_emit(buf, "%s\n", params->cc_data_aggregate);
-    if (attr == &dev_attr_rotation_angle)
-        return sysfs_emit(buf, "%lld\n", params->rotation_angle);
-    if (attr == &dev_attr_angle_snap_threshold)
-        return sysfs_emit(buf, "%lld\n", params->angle_snap_threshold);
-    if (attr == &dev_attr_angle_snap_angle)
-        return sysfs_emit(buf, "%lld\n", params->angle_snap_angle);
-    return -EINVAL;
+    struct accel_params *params;
+
+    rcu_read_lock();
+    params = rcu_dereference(state->params);
+    // TODO
+
+    if (attr == &dev_attr_acceleration_mode) {
+        ret = sysfs_emit(buf, "%d\n", params->acceleration_mode);
+    } else if (attr == &dev_attr_input_cap) {
+        ret = sysfs_emit(buf, "%lld\n", params->input_cap);
+    } else if (attr == &dev_attr_ratio_yx) {
+        ret = sysfs_emit(buf, "%lld\n", params->ratio_yx);
+    } else if (attr == &dev_attr_output_cap) {
+        ret = sysfs_emit(buf, "%lld\n", params->output_cap);
+    } else if (attr == &dev_attr_offset) {
+        ret = sysfs_emit(buf, "%lld\n", params->offset);
+    } else if (attr == &dev_attr_prescale) {
+        ret = sysfs_emit(buf, "%lld\n", params->prescale);
+    } else if (attr == &dev_attr_acceleration) {
+        ret = sysfs_emit(buf, "%lld\n", params->acceleration);
+    } else if (attr == &dev_attr_sensitivity) {
+        ret = sysfs_emit(buf, "%lld\n", params->sensitivity);
+    } else if (attr == &dev_attr_exponent) {
+        ret = sysfs_emit(buf, "%lld\n", params->exponent);
+    } else if (attr == &dev_attr_midpoint) {
+        ret = sysfs_emit(buf, "%lld\n", params->midpoint);
+    } else if (attr == &dev_attr_motivity) {
+        ret = sysfs_emit(buf, "%lld\n", params->motivity);
+    } else if (attr == &dev_attr_use_smoothing) {
+        ret = sysfs_emit(buf, "%d\n", params->use_smoothing);
+    } else if (attr == &dev_attr_lut_data) {
+        ret = sysfs_emit(buf, "%s\n", "TODO");
+        // ret = sysfs_emit(buf, "%s\n", params->lut_data);
+    } else if (attr == &dev_attr_cc_data_aggregate) {
+        ret = sysfs_emit(buf, "%s\n", params->cc_data_aggregate);
+    } else if (attr == &dev_attr_rotation_angle) {
+        ret = sysfs_emit(buf, "%lld\n", params->rotation_angle);
+    } else if (attr == &dev_attr_angle_snap_threshold) {
+        ret = sysfs_emit(buf, "%lld\n", params->angle_snap_threshold);
+    } else if (attr == &dev_attr_angle_snap_angle) {
+        ret = sysfs_emit(buf, "%lld\n", params->angle_snap_angle);
+    } else {
+        ret = -EINVAL;
+    }
+
+    rcu_read_unlock();
+
+    return ret;
+}
+
+static int parse_lut_data(const char *buf, int count, struct accel_params* params) {
+  const char *p   = buf;
+  const char *end = buf + count;
+  const size_t lut_max = ARRAY_SIZE(params->lut_data_x);  // x and y are same size
+  int i = 0;
+
+  while (p < end && *p && i < 2 * lut_max) {
+      FP_LONG val;
+      int consumed = FP64_FromString(p, &val);
+
+      if (consumed <= 0 || consumed > (end - p))
+          return -EINVAL;
+
+      ((i % 2 == 0) ? params->lut_data_x
+                    : params->lut_data_y)[i / 2] = val;
+      i++;
+      p += consumed;
+
+      if (p == end) // buffer is empty
+          break;
+      if (*p == ';' || *p == ',') {
+          p++;
+          continue;
+      }
+      if (*p == '\0' || *p == '\n')
+          break;
+
+      return -EINVAL; // unexpected separator
+  }
+
+  // enforce that pairs are complete
+  if (i % 2 != 0)
+      return -EINVAL;
+
+  params->lut_pairs = i / 2;
+
+  return 0;
+}
+
+static void validate_config(struct accel_params *cfg)
+{
+    if (cfg->lut_pairs <= 1 &&
+        (cfg->acceleration_mode == AccelMode_Lut ||
+         cfg->acceleration_mode == AccelMode_CustomCurve))
+        cfg->acceleration_mode = AccelMode_Current;
+
+    if (cfg->angle_snap_threshold >= FP64_PI ||
+        cfg->angle_snap_threshold <  0)
+        cfg->angle_snap_threshold = 0;
 }
 
 static ssize_t mouse_param_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+    int ret;
     struct input_dev *idev = to_input_dev(dev);
     struct mouse_state *state = input_get_drvdata(idev);
     if (!state) return -ENODEV;
 
-    struct accel_params *data = state->params;
-    long long val;
-    int ret;
+    struct accel_params *new_config;
+    struct accel_params *old_config;
 
-    ret = kstrtoll(buf, 10, &val);
-    if (ret) return ret;
+    new_config = kzalloc(sizeof(struct accel_params), GFP_KERNEL);
+    if (!new_config) {
+        return -ENOMEM;
+    }
+
+    mutex_lock(&state->writer);
+
+    old_config = rcu_dereference_protected(state->params,
+                                        lockdep_is_held(&state->writer));
+    *new_config = *old_config;
+
+    long long val;
+
+    if (attr != &dev_attr_lut_data && attr != &dev_attr_cc_data_aggregate) {
+        ret = kstrtoll(buf, 10, &val);
+        if (ret)
+            goto err_unlock;
+    }
 
     if (attr == &dev_attr_acceleration_mode)
-        data->acceleration_mode = val;
+        new_config->acceleration_mode = val;
     else if (attr == &dev_attr_input_cap)
-        data->input_cap = val;
+        new_config->input_cap = val;
     else if (attr == &dev_attr_ratio_yx)
-        data->ratio_yx = val;
+        new_config->ratio_yx = val;
     else if (attr == &dev_attr_output_cap)
-        data->output_cap = val;
+        new_config->output_cap = val;
     else if (attr == &dev_attr_offset)
-        data->offset = val;
+        new_config->offset = val;
     else if (attr == &dev_attr_prescale)
-        data->prescale = val;
-    else if (attr == &dev_attr_acceleration)
-        data->acceleration = val;
+        new_config->prescale = val;
+    else if (attr == &dev_attr_acceleration) {
+        new_config->acceleration = FP64_FromInt(val);
+    }
     else if (attr == &dev_attr_sensitivity)
-        data->sensitivity = val;
+        new_config->sensitivity = val;
     else if (attr == &dev_attr_exponent)
-        data->exponent = val;
+        new_config->exponent = val;
     else if (attr == &dev_attr_midpoint)
-        data->midpoint = val;
+        new_config->midpoint = val;
     else if (attr == &dev_attr_motivity)
-        data->motivity = val;
+        new_config->motivity = val;
     else if (attr == &dev_attr_use_smoothing)
-        data->use_smoothing = val;
-    else if (attr == &dev_attr_lut_size)
-        data->lut_size = val;
+        new_config->use_smoothing = val;
     else if (attr == &dev_attr_lut_data) {
-        // Call the parser
+        int res = parse_lut_data(buf, count, new_config);
+        if (res < 0) {
+          ret = res;
+          goto err_unlock;
+        }
     }
     else if (attr == &dev_attr_cc_data_aggregate) {
         // nop
     }
     else if (attr == &dev_attr_rotation_angle)
-        data->rotation_angle = val;
+        new_config->rotation_angle = val;
     else if (attr == &dev_attr_angle_snap_threshold)
-        data->angle_snap_threshold = val;
+        new_config->angle_snap_threshold = val;
     else if (attr == &dev_attr_angle_snap_angle)
-        data->angle_snap_angle = val;
+        new_config->angle_snap_angle = val;
+
+    validate_config(new_config);
+
+    // FIXME: modes_consts should also be protected by RCU
+    update_constants(new_config, &state->modes_consts);
+
+    rcu_assign_pointer(state->params, new_config);
+
+    mutex_unlock(&state->writer);
+
+    kfree_rcu(old_config, rcu);
 
     return count;
+
+err_unlock:
+    mutex_unlock(&state->writer);
+    kfree(new_config);
+    return ret;
 }
 
 static int __init yeetmouse_init(void) {
+    yeetmouse_class = class_create("yeetmouse");
+    if (IS_ERR(yeetmouse_class))
+        return PTR_ERR(yeetmouse_class);
+
     return input_register_handler(&driver_handler);
 }
 
 static void __exit yeetmouse_exit(void) {
     input_unregister_handler(&driver_handler);
+    class_destroy(yeetmouse_class);
 }
 
 MODULE_DESCRIPTION("USB HID input handler applying mouse acceleration (Yeetmouse)");

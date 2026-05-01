@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "accel.h"
-#include "util.h"
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/time.h>
 #include <linux/string.h>   //strlen
 #include "FixedMath/Fixed64.h"
-#include "../shared_definitions.h"
 #include "accel_modes.h"
 #include "defaults.h"
 
@@ -99,81 +97,14 @@ struct ModesConstants modesConst = {
     .sin_a = 0, .cos_a = 0, .as_cos = 0, .as_sin = 0, .as_half_threshold = 0, .current_func_at_0 = FP64_1
 };
 
-static ktime_t g_next_update = 0;
-INLINE void update_params(ktime_t now)
-{
-    if(!g_update) return;
-    if(now < g_next_update) return;
-    g_update = 0;
-    g_next_update = now + 1000000000ll;    //Next update is allowed after 1s of delay
-
-    modesConst.is_init = false;
-
-    PARAM_UPDATE(InputCap);
-    PARAM_UPDATE(Sensitivity);
-    PARAM_UPDATE(RatioYX);
-    PARAM_UPDATE(Acceleration);
-    PARAM_UPDATE(OutputCap);
-    PARAM_UPDATE(Offset);
-    PARAM_UPDATE(Exponent);
-    PARAM_UPDATE(Midpoint);
-    PARAM_UPDATE(PreScale);
-    PARAM_UPDATE(Motivity);
-    PARAM_UPDATE(RotationAngle);
-    PARAM_UPDATE(AngleSnap_Threshold);
-    PARAM_UPDATE(AngleSnap_Angle);
-    g_LutSize = PARAM_UPDATE_UL(LutSize);
-    g_AccelerationMode = PARAM_UPDATE_UL(AccelerationMode);
-    if(g_LutSize > MAX_LUT_ARRAY_SIZE)
-        g_LutSize = MAX_LUT_ARRAY_SIZE;
-    // LutDataBuf get auto updated, we don't need to do anything, just extract the data
-    // Populate the g_LutData with the data in the buffer
-    char* p = g_param_LutDataBuf;
-    int i = 0;
-    for(; i < g_LutSize*2 && *p; i++) {
-        FP_LONG val;
-        p += FP64_FromString(p, &val) + 1; // + 1 to skip the ';' or ','
-        // The format for the driver side is very strict tho, so don't edit it by hand pls.
-        ((i % 2 == 0) ? g_LutData_x : g_LutData_y)[i/2] = val;
-
-        // Debug stuff (you know it didn't work the first time (nor the 10th time... (that's at least 10 'blue screens')))
-        //char buf[25];
-        //FP64_ToString(val, buf, 4);
-        //printk("YeetMouse: Converted %s, next char is: %i\n", buf, *p);
-    }
-
-    // Did not work correctly
-    if(i % 2 == 1)
-        g_LutSize = 0;
-
-    // Sanity check
-    if(g_LutSize <= 1 && (g_AccelerationMode == AccelMode_Lut || g_AccelerationMode == AccelMode_CustomCurve))
-        g_AccelerationMode = AccelMode_Current;
-
-    if ((g_AccelerationMode == AccelMode_Lut || g_AccelerationMode == AccelMode_CustomCurve) &&
-        (g_LutData_x[g_LutSize-1] == g_LutData_x[g_LutSize-2] && g_LutData_y[g_LutSize-1] == g_LutData_y[g_LutSize-2]))
-        g_AccelerationMode = AccelMode_Current;
-
-    // Angle snap threshold should be in range [0, PI)
-    if(g_AngleSnap_Threshold >= FP64_PI || g_AngleSnap_Threshold < 0) {
-        g_AngleSnap_Threshold = 0;
-    }
-
-    update_constants();
-}
-
 // Acceleration happens here
-int accelerate(int *x, int *y)
+int accelerate(const struct accel_params * params, struct accel_runtime *rt, const struct ModesConstants *constants, int *x, int *y)
 {
     FP_LONG delta_x, delta_y, ms, speed;
     //static long buffer_x = 0;
     //static long buffer_y = 0;
-    //Static float assignment should happen at compile-time and thus should be safe here. However, avoid non-static assignment of floats outside kernel_fpu_begin()/kernel_fpu_end()
-    static FP_LONG carry_x = 0;
-    static FP_LONG carry_y = 0;
     //static FP_LONG carry_whl = 0;
     static FP_LONG last_ms = One;
-    static ktime_t last;
     ktime_t now;
     int status = 0;
 
@@ -187,7 +118,7 @@ int accelerate(int *x, int *y)
 
     //Calculate frametime
     now = ktime_get(); // ns
-    long long dt = (now - last);
+    long long dt = (now - rt->last);
     //int frac = dt % 10000;
     // We can't just store milliseconds as this would lose a lot of precision (nano -> mili, that's 10^-6 difference).
     // But we have only Q16.16 bits of precision, meaning 16 bits for the fractional part of the number (it's constant!).
@@ -198,7 +129,7 @@ int accelerate(int *x, int *y)
     /// THE ABOVE NO LONGER HOLDS, AS I'VE MOVED (AGAIN), THIS TIME TO 64bit FIXED POINT MATH
     //ms = FP64_FromInt(dt / 10000ll) + FP64_Div(FP64_FromInt(frac), fp64_10000); // NOT MILLISECONDS, its ms * 100
     ms = FP64_DivPrecise(FP64_FromInt(dt), FP64_FromInt(1000000));
-    last = now;
+    rt->last = now;
     //if(ms < 1) ms = last_ms;    //Sometimes, urbs appear bunched -> Beyond µs resolution so the timing reading is plain wrong. Fallback to last known valid frametime
     // Editor node: I have no idea, what this line above really does, but commenting it out solves all my problems
     // with incorrect data. It seems that it tries to fix a problem that doesn't exist, or doesn't exist on my
@@ -209,12 +140,12 @@ int accelerate(int *x, int *y)
     last_ms = ms;
 
     // Update acceleration parameters periodically
-    update_params(now);
+    // update_params(params, now);
 
     // Apply Pre-Scale
-    if (g_PreScale != FP64_1) {
-        delta_x = FP64_Mul(delta_x, g_PreScale);
-        delta_y = FP64_Mul(delta_y, g_PreScale);
+    if (params->prescale != FP64_1) {
+        delta_x = FP64_Mul(delta_x, params->prescale);
+        delta_y = FP64_Mul(delta_y, params->prescale);
     }
 
     // Calculate velocity
@@ -222,79 +153,79 @@ int accelerate(int *x, int *y)
     speed = FP64_DivPrecise(speed, ms);
 
     // Apply speedcap
-    if (g_InputCap > 0) {
-        //if(speed >= g_InputCap) {
-        if (FP64_Sub(speed, g_InputCap) > 0) {
-            speed = g_InputCap;
+    if (params->input_cap > 0) {
+        //if(speed >= params->input_cap) {
+        if (FP64_Sub(speed, params->input_cap) > 0) {
+            speed = params->input_cap;
         }
     }
 
-    speed = FP64_Sub(speed, g_Offset);
+    speed = FP64_Sub(speed, params->offset);
 
     // Apply Rotation before everything else to keep the precision
-    if(g_RotationAngle != 0) {
-        FP_LONG new_delta_x = FP64_Mul(delta_x, modesConst.cos_a) - FP64_Mul(delta_y, modesConst.sin_a);
-        delta_y = FP64_Mul(delta_x, modesConst.sin_a) + FP64_Mul(delta_y, modesConst.cos_a);
+    if(params->rotation_angle != 0) {
+        FP_LONG new_delta_x = FP64_Mul(delta_x, constants->cos_a) - FP64_Mul(delta_y, constants->sin_a);
+        delta_y = FP64_Mul(delta_x, constants->sin_a) + FP64_Mul(delta_y, constants->cos_a);
         delta_x = new_delta_x;
     }
 
     static_assert(AccelMode_Count == 10, "Wrong AccelMode count!");
     // Apply acceleration if movement is over offset
     if (speed > 0) {
-        switch (g_AccelerationMode) {
+        switch (params->acceleration_mode) {
             case AccelMode_Linear:
-                speed = accel_linear(speed);
+                speed = accel_linear(constants, params->acceleration, params->use_smoothing, speed);
                 break;
             case AccelMode_Power:
-                speed = accel_power(speed);
+                speed = accel_power(constants, params->midpoint, params->acceleration, params->exponent, params->use_smoothing, speed);
                 break;
             case AccelMode_Classic:
-                speed = accel_classic(speed);
+                speed = accel_classic(constants, params->acceleration, params->use_smoothing, speed);
                 break;
             case AccelMode_Motivity:
-                speed = accel_motivity(speed);
+                speed = accel_motivity(constants, params->midpoint, speed);
                 break;
             case AccelMode_Synchronous:
-                speed = accel_synchronous(speed);
+                speed = accel_synchronous(constants, params->acceleration, params->use_smoothing, speed);
                 break;
             case AccelMode_Natural:
-                speed = accel_natural(speed);
+                speed = accel_natural(constants, params->midpoint, params->use_smoothing, speed);
                 break;
             case AccelMode_Jump:
-                speed = accel_jump(speed);
+                speed = accel_jump(constants, params->midpoint, params->use_smoothing, speed);
                 break;
             case AccelMode_Lut: case AccelMode_CustomCurve:
-                speed = accel_lut(speed);
+                speed = accel_lut(params->lut_pairs, params->lut_data_x, params->lut_data_y, speed);
                 break;
             default:
                 speed = FP64_1;
                 break;
         }
     } else {
-        speed = modesConst.current_func_at_0;
+        speed = constants->current_func_at_0;
     }
 
     // Actually apply accelerated sensitivity, allow post-scaling and apply carry from previous round
     // Like RawAccel, sensitivity will be a final multiplier:
-    if (g_RatioYX == FP64_1) {
-        if(g_Sensitivity != FP64_1)
-            speed = FP64_Mul(speed, g_Sensitivity);
+    if (params->ratio_yx == FP64_1) {
+        if(params->sensitivity != FP64_1)
+            speed = FP64_Mul(speed, params->sensitivity);
 
         // Apply Output Limit
-        if(g_OutputCap > 0)
-            speed = FP64_Min(g_OutputCap, speed);
+        if(params->output_cap > 0)
+            speed = FP64_Min(params->output_cap, speed);
 
         // Apply acceleration
         delta_x = FP64_Mul(delta_x, speed);
         delta_y = FP64_Mul(delta_y, speed);
     } else {
-        speed = FP64_Mul(speed, g_Sensitivity);
-        FP_LONG speed_Y = FP64_Mul(speed, g_RatioYX);
+        speed = FP64_Mul(speed, params->sensitivity);
+        FP_LONG speed_Y = FP64_Mul(speed, params->ratio_yx);
 
         // Apply Output Limit
-        if(g_OutputCap > 0) {
-            speed = FP64_Min(g_OutputCap, speed);
-            speed_Y = FP64_Min(g_OutputCap, speed_Y);
+        if(params->output_cap > 0) {
+            speed = FP64_Min(params->output_cap, speed);
+            speed_Y = FP64_Min(params->output_cap, speed_Y);
         }
 
         // Apply acceleration
@@ -303,36 +234,36 @@ int accelerate(int *x, int *y)
     }
 
     // Angle Snapping
-    if(modesConst.as_half_threshold != 0) {
+    if(constants->as_half_threshold != 0) {
         FP_LONG delta_mag = FP64_Sqrt(FP64_Add(FP64_Mul(delta_x, delta_x), FP64_Mul(delta_y, delta_y)));
         if (delta_mag != 0) {
             FP_LONG current_angle = FP64_Atan2(delta_y, delta_x);
-            FP_LONG angle_diff = FP64_Sub(g_AngleSnap_Angle, current_angle);
+            FP_LONG angle_diff = FP64_Sub(params->angle_snap_angle, current_angle);
             FP_LONG angle_diff_quarter = FP64_PI_2 - FP64_Abs(angle_diff);
 
             int sign = FP64_Sign(angle_diff_quarter);
             angle_diff_quarter = FP64_Abs(angle_diff_quarter) - FP64_PI_2;
 
-            if (FP64_Abs(angle_diff_quarter) <= modesConst.as_half_threshold) {
-                delta_x = FP64_Mul(modesConst.as_cos, delta_mag) * sign;
-                delta_y = FP64_Mul(modesConst.as_sin, delta_mag) * sign;
+            if (FP64_Abs(angle_diff_quarter) <= constants->as_half_threshold) {
+                delta_x = FP64_Mul(constants->as_cos, delta_mag) * sign;
+                delta_y = FP64_Mul(constants->as_sin, delta_mag) * sign;
             }
         }
     }
 
-    delta_x = FP64_Add(delta_x, carry_x);
-    delta_y = FP64_Add(delta_y, carry_y);
+    delta_x = FP64_Add(delta_x, rt->carry_x);
+    delta_y = FP64_Add(delta_y, rt->carry_y);
 
     // I don't do wheel, sorry
-    //delta_whl *= g_ScrollsPerTick/3.0f;
+    //delta_whl *= params->scrolls_per_tick/3.0f;
 
     //Cast back to int
     *x = FP64_RoundToInt(delta_x);
     *y = FP64_RoundToInt(delta_y);
 
     //Save carry for next round
-    carry_x = FP64_Sub(delta_x, FP64_FromInt(*x));
-    carry_y = FP64_Sub(delta_y, FP64_FromInt(*y));
+    rt->carry_x = FP64_Sub(delta_x, FP64_FromInt(*x));
+    rt->carry_y = FP64_Sub(delta_y, FP64_FromInt(*y));
     //carry_whl = delta_whl - *wheel;
 
     // Used to very roughly estimate the performance, and 0.1% lows

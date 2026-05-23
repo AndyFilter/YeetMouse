@@ -633,6 +633,7 @@ static int OnGui() {
                     modified |= ImPlot::DragPoint(i * 2, &p.x, &p.y, ImVec4(0, 0.9f, 0, 1), 4, ImPlotDragToolFlags_None,
                                                   &is_pressed, &is_hovered, &is_held);
                     is_interacting_with_points |= is_pressed || is_held || is_hovered;
+                    modified |= is_held;
 
                     if (is_held) {
                         p.x = std::clamp(p.x, p_min, p_max);
@@ -908,6 +909,7 @@ static int OnGui() {
                                                           is_point_hovered ? 5 : 4, ImPlotDragToolFlags_None,
                                                           &is_pressed, &is_hovered, &is_held);
                             is_interacting_with_points |= is_pressed || is_held || is_hovered;
+                            modified |= is_held;
 
                             if (is_held) {
                                 if (j == 1)

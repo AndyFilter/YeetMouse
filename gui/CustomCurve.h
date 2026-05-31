@@ -22,10 +22,19 @@ struct Ex_Vec2 : ImVec2 {
     Ex_Vec2() : ImVec2(0, 0) {}
 };
 
+struct ControlPoint_Vec2 : ImVec2 {
+    bool enabled = true;
+
+    ControlPoint_Vec2(float x, float y) : ImVec2(x, y) {}
+    ControlPoint_Vec2(float x, float y, bool enabled) : ImVec2(x, y), enabled(enabled) {}
+    ControlPoint_Vec2(ImVec2 vec) : ImVec2(vec) {}
+    ControlPoint_Vec2() : ImVec2(0, 0) {}
+};
+
 class CustomCurve {
 public:
     std::deque<Ex_Vec2> points{{5, 1}, {50, 2}}; // actual points
-    std::deque<std::array<ImVec2, 2> > control_points{std::array<ImVec2, 2>({ImVec2{40, 1}, ImVec2{20, 2}})};
+    std::deque<std::array<ControlPoint_Vec2, 2> > control_points{std::array<ControlPoint_Vec2, 2>({ImVec2{40, 1}, ImVec2{20, 2}})};
     std::vector<ImPlotPoint> LUT_points{};
 
     CustomCurve() = default;

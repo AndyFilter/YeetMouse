@@ -9,7 +9,7 @@
 
 #include <ImGui/implot.h>
 
-#define CURVE_POINTS_MARGIN 0.2f
+#define CURVE_POINTS_MARGIN 0.001f
 #define BEZIER_FRAG_SEGMENTS 50
 #define CURVE_EXPORT_PRECISION 3 // Decimal points precision for exporting Custom Curves
 

@@ -1,14 +1,12 @@
-{ shortRev ? "dev" }:
-pkgs @ {
+{
   lib,
-  bash,
   stdenv,
-  coreutils,
   writeShellScript,
   makeDesktopItem,
-  kernel ? pkgs.linuxPackages.kernel,
-  kernelModuleMakeFlags ? pkgs.linuxPackages.kernelModuleMakeFlags,
-  ...
+  pkgs,
+  kernel,
+  kernelModuleMakeFlags,
+  shortRev ? "dev"
 }:
 
 let
@@ -36,7 +34,6 @@ let
     ];
 
     makeFlags = kernelModuleMakeFlags ++ [
-      "KBUILD_OUTPUT=${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "-C"
       "${kernel.dev}/lib/modules/${kernel.modDirVersion}/build"
       "M=$(sourceRoot)/driver"

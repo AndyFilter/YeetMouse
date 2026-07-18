@@ -7,19 +7,23 @@
 
   outputs = inputs @ { self, nixpkgs }: let
     inherit (inputs.nixpkgs) lib;
-    packageInputs = {
-      shortRev = if (self ? shortRev) then self.shortRev else self.dirtyRev;
+    shortRev = if (self ? shortRev) then self.shortRev else self.dirtyRev;
+    packageInputs = pkgs: {
+      inherit shortRev;
+      inherit (pkgs.linuxPackages) kernel kernelModuleMakeFlags;
     };
     eachSystem = lib.genAttrs ["aarch64-linux" "x86_64-linux"];
     overlay = final: prev: {
-      yeetmouse = import ./package.nix packageInputs final;
+      yeetmouse = final.callPackage import ./package.nix (packageInputs final);
     };
   in {
     inherit inputs;
-    nixosModules.default = import ./module.nix overlay;
+    nixosModules.default = import ./module.nix shortRev;
     overlays.default = overlay;
-    packages = eachSystem (system: {
-      yeetmouse = (import ./package.nix packageInputs nixpkgs.legacyPackages.${system});
+    packages = eachSystem (system: let
+      pkgs = nixpkgs.legacyPackages.${system};
+    in {
+      yeetmouse = pkgs.callPackage ./package.nix (packageInputs pkgs);
     });
   };
 }

@@ -103,3 +103,6 @@ namespace ImGui {
 float ImBezierCubicCalc(ImVec2 const&, ImVec2 const&, ImVec2 const&, ImVec2 const&, float) {
     throw std::logic_error("NOT YET IMPLEMENTED!");
 }
+float ImBezierQuadraticCalc(const ImVec2 &p1, const ImVec2 &p2, const ImVec2 &p3, float t) {
+    throw std::logic_error("NOT YET IMPLEMENTED!");
+}

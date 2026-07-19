@@ -1,5 +1,6 @@
+#include <ImGui/imgui.h>
 #include <array>
-#include <csignal>
+#include "CustomCurve.h"
 #include "gui.h"
 #include <ImGui/implot.h>
 #include "DriverHelper.h"
@@ -459,6 +460,7 @@ static int OnGui() {
                                 change |= ImGui::DragFloat("##pos2x", &p1.x, 0.5, p_min, p_max, "%.3f x");
                                 ImGui::SameLine(0, g.Style.ItemInnerSpacing.x);
                                 change |= ImGui::DragFloat("##pos2y", &p1.y, 0.01, 0, 10, "%.3f y");
+                                change |= ImGui::Checkbox("Enable", &p1.enabled);
                                 ImGui::PopItemWidth();
                                 ImGui::PopItemWidth();
                                 ImGui::EndGroup();
@@ -608,14 +610,23 @@ static int OnGui() {
                 if (show_custom_curve_control_points) {
                     ImPlot::PushPlotClipRect();
                     for (int i = 0; i < points.size() - 1; ++i) {
-                        auto &p = points[i];
-                        ImVec2 p1 = ImPlot::PlotToPixels(p);
-                        ImVec2 p2 = ImPlot::PlotToPixels(points[(i + 1) % points.size()]);
-                        ImVec2 pc1 = ImPlot::PlotToPixels(control_points[i][0]);
-                        ImVec2 pc2 = ImPlot::PlotToPixels(control_points[i][1]);
+                        // If none of the control points are enabled,
+                        // there is nothing to draw, so skip this iteration.
+                        if (!control_points[i][0].enabled &&
+                            !control_points[i][1].enabled) {
+                            continue;
+                        }
+                            auto &p = points[i];
+                            ImVec2 p1 = ImPlot::PlotToPixels(p);
+                            ImVec2 p2 = ImPlot::PlotToPixels(points[(i + 1) % points.size()]);
 
-                        ImPlot::GetPlotDrawList()->AddLine(p1, pc1, ImColor(0.7, 0.1f, 0.8, 0.8));
-                        ImPlot::GetPlotDrawList()->AddLine(p2, pc2, ImColor(0.7, 0.1f, 0.8, 0.8));
+                            ImVec2 pc1 = control_points[i][0].enabled ? ImPlot::PlotToPixels(control_points[i][0]) : ImPlot::PlotToPixels(control_points[i][1]);
+                            ImVec2 pc2 = control_points[i][1].enabled ? ImPlot::PlotToPixels(control_points[i][1]) : ImPlot::PlotToPixels(control_points[i][0]);
+
+                            ImPlot::GetPlotDrawList()->AddLine(p1, pc1, ImColor(0.7, 0.1f, 0.8, 0.8));
+                            ImPlot::GetPlotDrawList()->AddLine(p2, pc2, ImColor(0.7, 0.1f, 0.8, 0.8));
+
+
                     }
                     ImPlot::PopPlotClipRect();
                 }
@@ -673,23 +684,34 @@ static int OnGui() {
                             ImVec2 drag = p - p_before;
 
                             //printf("held drag = (%.2f, %.2f)\n", drag.x, drag.y);
-                            // Apply the Bezier point drag to it's control points
-                            if (i == 0) {
-                                control_points[0][0] += drag;
-                            } else if (i == points.size() - 1) {
-                                control_points[i - 1][1] += drag;
-                            } else {
-                                control_points[i][0] += drag;
-                                control_points[i - 1][1] += drag;
+                            // with only one point, we don't have control points
+                            if (points.size() > 1) {
+                                // Apply the Bezier point drag to it's control points
+                                if (i == 0) {
+                                    control_points[0][0] += drag;
+                                } else if (i == points.size() - 1) {
+                                    control_points[i - 1][1] += drag;
+                                } else {
+                                    control_points[i][0] += drag;
+                                    control_points[i - 1][1] += drag;
+                                }
                             }
                         }
-                        if (points.size() > 1) {
+
+                        bool more_than_one_point = points.size() > 1;
+                        if (more_than_one_point) {
+                            bool is_start_point = i == 0;
+                            bool is_end_point = i == points.size() - 1;
+                            bool is_start_or_end_point = is_start_point || is_end_point;
+                            bool all_left_disabled = false;
+                            bool all_right_disabled = false;
+                            all_right_disabled = !is_end_point && (!control_points[i][0].enabled && !control_points[i][1].enabled);
+                            all_left_disabled = !is_start_point && (!control_points[i - 1][0].enabled && !control_points[i - 1][1].enabled);
                             ImGui::SeparatorText("Control points");
                             ImGui::Checkbox("Polar coordinates", &p.use_polar_coordinates);
                             ImGui::SetItemTooltip("Use polar coordinates for the control points");
 
                             // Begin grouping to from a grid of widgets
-                            bool is_start_or_end_point = (i == 0 || (i == points.size() - 1));
                             ImGui::BeginGroup();
                             // The ternary operator is to handle the start and
                             // end point of the curve because there is no align-button
@@ -712,10 +734,29 @@ static int OnGui() {
                                     ImGui::Text("y");
                                 }
                                 ImGui::TableNextRow();
-                                for (int j = (i == points.size() - 1 || i == 0) ? 0 : 1; j >= 0; j--) {
+                                for (int j = is_start_or_end_point ? 0 : 1; j >= 0; j--) {
+                                    int new_i = is_end_point ? (i - 1) : (i - j);
+                                    int new_j = is_start_point ? 0 : is_end_point ? 1 : j;
+
+                                    // The idea is that if no control point is enabled, we control the next point.
+                                    ImVec2 *aux = control_points[new_i][new_j].enabled ? &control_points[new_i][new_j] : &control_points[new_i][new_j ^ 1];
+                                    p_max = i < points.size() - 1 ? points[i + (1 - j)].x - CURVE_POINTS_MARGIN : points[i].x - CURVE_POINTS_MARGIN;
+                                    p_min = is_start_point ? points[i].x + CURVE_POINTS_MARGIN : points[i - j].x + CURVE_POINTS_MARGIN;
+                                    if (all_right_disabled && !j) {
+                                        aux = &points[i + 1];
+                                        p_max = i < points.size() - 2 ? points[i + 2].x - 0.5f : 1000;
+                                        p_min = is_start_point ? points[i].x + 0.5f : points[i - j].x + 0.5f;
+                                    }
+                                    else if (all_left_disabled && (j || is_end_point)) {
+                                        aux = &points[i - 1];
+                                        p_max = i < points.size() - 1 ? points[i].x - 0.5f : 1000;
+                                        p_min = i == 1 ? 0 : points[i - 2].x + 0.5f;
+                                    }
+                                    ImVec2 &p1 = *aux;
+
+                                    // That means there are no control points
+                                    // if (!p1.enabled) continue;
                                     ImGui::PushID(j);
-                                    auto &p1 = control_points[i == points.size() - 1 ? (i - 1) : (i - j)][
-                                        i == 0 ? 0 : i == points.size() - 1 ? 1 : j];
                                     // p.x = std::clamp(p.x, i > 0 ? points[i-1].x + 0.5f : 0, i < points.size() - 1 ? points[i+1].x - 0.5f : 1000);
                                     ImGui::TableNextColumn();
                                     if (p.use_polar_coordinates) {
@@ -731,7 +772,7 @@ static int OnGui() {
 
                                         const int last_idx = (int) points.size() - 1;
                                         const bool is_outgoing =
-                                                (i == 0) ? true : (i == last_idx) ? false : (j == 0);
+                                            (i == 0) ? true : (i == last_idx) ? false : (j == 0);
 
                                         // Bound L (magnitude) so that p1.x stays within the allowed X interval.
                                         auto MaxMagnitudeForHandle = [&](float theta_rad) -> float {
@@ -804,7 +845,16 @@ static int OnGui() {
                                             // the beginning and the end in the logic
                                             // in the condition for this block
                                             int new_j = j == 0 ? 1 : 0;
-                                            auto &p2 = control_points[i - new_j][new_j];
+                                            // We want to align the control point that is available, that is why we flip the value
+                                            ImVec2 *aux = control_points[i - new_j][new_j].enabled ? &control_points[i - new_j][new_j] : &control_points[i - new_j][new_j ^ 1];
+                                            // if every control point is disabled, then we pick the next point
+                                            if (all_right_disabled && !new_j) {
+                                                aux = &points[i + 1];
+                                            }
+                                            else if (all_left_disabled && new_j) {
+                                                aux = &points[i - 1];
+                                            }
+                                            ImVec2 &p2 = *aux;
 
                                             // We want to preserve the current length
                                             auto length = std::sqrt(ImLengthSqr(p1 - p));
@@ -856,12 +906,12 @@ static int OnGui() {
                         if (move_control_points_along) {
                             // Apply the Bezier point drag to it's control points
                             if (held_point == 0) {
-                                control_points[0][0] += drag;
+                                control_points[0][control_points[0][0].enabled ? 0 : 1] += drag;
                             } else if (held_point == points.size() - 1) {
-                                control_points[held_point - 1][1] += drag;
+                                control_points[held_point - 1][control_points[held_point - 1][1].enabled ? 1 : 0] += drag;
                             } else {
-                                control_points[held_point][0] += drag;
-                                control_points[held_point - 1][1] += drag;
+                                control_points[held_point][control_points[held_point][0].enabled ? 0 : 1] += drag;
+                                control_points[held_point - 1][control_points[held_point - 1][1].enabled ? 1 : 0] += drag;
                             }
                         }
 
@@ -889,6 +939,10 @@ static int OnGui() {
                 if (show_custom_curve_control_points && points.size() > 1) {
                     for (int i = 0; i < control_points.size(); ++i) {
                         for (int j = 0; j < 2; j++) {
+                            // Skip rendering if this specific control point is disabled
+                            if (!control_points[i][j].enabled) {
+                                continue;
+                            }
                             bool is_point_hovered =
                                     hovered_point != -1 && (
                                         (i == hovered_point && j == 0) || (i == hovered_point - 1 && j == 1));

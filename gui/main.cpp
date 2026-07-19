@@ -11,6 +11,7 @@
 #include <fstream>
 #include <vector>
 #include <unistd.h>
+#include <GLFW/glfw3.h>
 
 #include <ImGui/imgui_internal.h>
 #include <ImGui/implot_internal.h>
@@ -43,6 +44,8 @@ bool has_privilege = false;
 static char LUT_user_data[MAX_LUT_BUF_LEN];
 
 void ResetParameters();
+void ApplyImportedParameters(Parameters cur_params[NUM_MODES], const Parameters& imported_params);
+void DroppedFilesCallback(GLFWwindow* window, int path_count, const char* paths[]);
 
 #define RefreshDevices() {devices = DriverHelper::DiscoverDevices(); \
                             if(selected_device >= devices.size())    \
@@ -107,27 +110,7 @@ static int OnGui() {
             }
 
             if (changed) {
-                for (int i = 1; i < NUM_MODES; i++) {
-                    if (i == AccelMode_CustomCurve) {
-                        // Preserve the custom curve points when copying
-                        CustomCurve curve = params[AccelMode_CustomCurve].customCurve;
-                        params[i] = imported_params;
-                        if (imported_params.customCurve.points.size() <= 1)
-                            params[i].customCurve = curve;
-
-                        params[i].lutSize = params[i].customCurve.ExportCurveToLUT(
-                            params[i].lutDataX, params[i].lutDataY);
-                        params[i].customCurve.ApplyCurveConstraints();
-                        params[i].customCurve.UpdateLUT();
-                    } else
-                        params[i] = imported_params;
-
-                    params[i].accelMode = static_cast<AccelMode>(i == 0 ? used_mode : i);
-                    functions[i] = CachedFunction(((float) PLOT_X_RANGE) / PLOT_POINTS, &params[i]);
-                    functions[i].PreCacheFunc();
-                }
-
-                selected_mode = imported_params.accelMode;
+                ApplyImportedParameters(params, imported_params);
             }
             ImGui::EndMenu();
         }
@@ -1247,6 +1230,50 @@ void ResetParameters(void) {
     }
 }
 
+void ApplyImportedParameters(Parameters cur_params[NUM_MODES], const Parameters& imported_params) {
+    for (int i = 1; i < NUM_MODES; i++) {
+        if (i == AccelMode_CustomCurve) {
+            // Preserve the custom curve points when copying
+            CustomCurve curve = cur_params[AccelMode_CustomCurve].customCurve;
+            cur_params[i] = imported_params;
+            if (imported_params.customCurve.points.size() <= 1)
+                cur_params[i].customCurve = curve;
+
+            cur_params[i].lutSize = cur_params[i].customCurve.ExportCurveToLUT(
+                cur_params[i].lutDataX, cur_params[i].lutDataY);
+            cur_params[i].customCurve.ApplyCurveConstraints();
+            cur_params[i].customCurve.UpdateLUT();
+        } else
+            cur_params[i] = imported_params;
+
+        cur_params[i].accelMode = static_cast<AccelMode>(i == 0 ? used_mode : i);
+        functions[i] = CachedFunction(PLOT_X_RANGE / PLOT_POINTS, &cur_params[i]);
+        functions[i].PreCacheFunc();
+    }
+    selected_mode = imported_params.accelMode;
+}
+
+void DroppedFilesCallback(GLFWwindow* /*window*/, int path_count, const char* paths[]) {
+    if (path_count < 1)
+        return;
+
+    const auto* first_file = paths[0];
+    const auto file_name_len = strlen(first_file);
+
+    auto file_stream = std::fstream(first_file);
+
+    if (!file_stream.is_open()) {
+        fprintf(stderr, "Failed to open file %s\n", first_file);
+        return;
+    }
+
+    bool is_header_file = first_file[file_name_len - 1] == 'h' && first_file[file_name_len - 2] == '.';
+    const auto imported_params = ConfigHelper::ImportAny(file_stream, LUT_user_data, is_header_file, nullptr);
+    if (imported_params.has_value()) {
+        ApplyImportedParameters(params, imported_params.value());
+    }
+}
+
 int main() {
     GUI::Setup(OnGui);
     ImPlot::CreateContext();
@@ -1268,6 +1295,9 @@ int main() {
                 "YeetMouse directory doesnt exist!\nInstall the driver first, or check the parameters path.\n");
         return 2;
     }
+
+    // Register file drag and drop
+    glfwSetDropCallback(GUI::window, DroppedFilesCallback);
 
     int fixed_num = 0;
     if (!DriverHelper::CleanParameters(fixed_num) && fixed_num != 0 && !has_privilege) {

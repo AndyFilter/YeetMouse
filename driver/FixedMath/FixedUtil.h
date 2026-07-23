@@ -34,6 +34,7 @@
 // Include numeric types
 #include <linux/types.h>
 
+#include <linux/kernel.h>
 
 // If FP_ASSERT is not custom-defined, then use the standard one
 //#ifndef FP_ASSERT

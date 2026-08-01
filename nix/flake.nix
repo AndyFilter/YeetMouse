@@ -14,7 +14,7 @@
     };
     eachSystem = lib.genAttrs ["aarch64-linux" "x86_64-linux"];
     overlay = final: prev: {
-      yeetmouse = final.callPackage import ./package.nix (packageInputs final);
+      yeetmouse = final.callPackage ./package.nix (packageInputs final);
     };
   in {
     inherit inputs;

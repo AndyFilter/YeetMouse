@@ -4,180 +4,157 @@
 #include <filesystem>
 #include <iostream>
 #include <cstring>
+#include <cerrno>
 #include <sstream>
 #include <algorithm>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <set>
 
 #include <ImGui/imgui_internal.h>
 #include <ImGui/implot.h>
 
 template<typename Ty>
-static bool GetParameterTy(const std::string &param_name, Ty &value) {
+static bool GetParameterTy(const std::string &path, Ty &value) {
     try {
         using namespace std;
-        ifstream file(YEETMOUSE_PARAMS_DIR + param_name);
+        ifstream file(path);
 
-        if (file.bad())
+        if (!(file >> value)) {
+            fprintf(stderr, "Error when reading parameter %s (%s)\n", path.c_str(), strerror(errno));
             return false;
+        }
 
-        file >> value;
-        file.close();
         return true;
     } catch (std::exception &ex) {
-        fprintf(stderr, "Error when reading parameter %s (%s)\n", param_name.c_str(), ex.what());
+        fprintf(stderr, "Error when reading parameter %s (%s)\n", path.c_str(), ex.what());
         return false;
     }
 }
 
-static bool GetParameterTy(const std::string &param_name, std::string &value) {
+static bool GetParameterTy(const std::string &path, std::string &value) {
     try {
         using namespace std;
-        ifstream file(YEETMOUSE_PARAMS_DIR + param_name);
+        ifstream file(path);
 
-        if (file.bad() || file.fail())
+        if (!file.is_open()) {
+            fprintf(stderr, "Error when reading parameter %s (%s)\n", path.c_str(), strerror(errno));
             return false;
+        }
 
         std::stringstream ss;
         ss << file.rdbuf();
         value = ss.str();
-        file.close();
         return true;
     } catch (std::exception &ex) {
-        fprintf(stderr, "Error when reading parameter %s (%s)\n", param_name.c_str(), ex.what());
+        fprintf(stderr, "Error when reading parameter %s (%s)\n", path.c_str(), ex.what());
         return false;
     }
 }
 
 template<typename Ty>
-bool SetParameterTy(const std::string &param_name, Ty value) {
+static bool SetParameterTy(const std::string &path, Ty value) {
     try {
         using namespace std;
-        ofstream file(YEETMOUSE_PARAMS_DIR + param_name);
+        ofstream file(path);
 
-        if (file.bad())
-            return false;
-
+        // The driver rejects malformed values, which only shows up when the stream is flushed
         file << value;
         file.close();
+
+        if (file.fail()) {
+            fprintf(stderr, "Error when saving parameter %s (%s)\n", path.c_str(), strerror(errno));
+            return false;
+        }
+
         return true;
     } catch (std::exception &ex) {
-        fprintf(stderr, "Error when saving parameter %s (%s)\n", param_name.c_str(), ex.what());
+        fprintf(stderr, "Error when saving parameter %s (%s)\n", path.c_str(), ex.what());
         return false;
     }
 }
 
 namespace DriverHelper {
-    bool GetParameterF(const std::string &param_name, float &value) {
-        return GetParameterTy(param_name, value);
+    std::vector<Device> DiscoverDevices() {
+        namespace fs = std::filesystem;
+
+        std::vector<Device> devices;
+        std::error_code ec;
+
+        // The class directory only exists while the driver is loaded
+        fs::directory_iterator it(YEETMOUSE_CLASS_DIR, fs::directory_options::skip_permission_denied, ec);
+        if (ec)
+            return devices;
+
+        for (const auto &entry: it) {
+            // Every entry is a symlink to the input device, holding the parameter group
+            auto params_dir = entry.path() / YEETMOUSE_DEVICE_PARAMS_SUBDIR;
+            if (!fs::is_directory(params_dir, ec))
+                continue;
+
+            Device device;
+            device.sysfs_name = entry.path().filename().string();
+            device.params_dir = params_dir.string() + "/";
+
+            // The driver had to mangle the name to use it as a directory, so read the original one back
+            std::ifstream name_file(entry.path() / "device" / "name");
+            if (!std::getline(name_file, device.name) || device.name.empty()) {
+                device.name = device.sysfs_name;
+                std::replace(device.name.begin(), device.name.end(), '_', ' ');
+            }
+
+            // Every parameter of a device shares the same permissions, so one of them is enough to test
+            const std::string probe = device.params_dir + "acceleration_mode";
+            device.readable = access(probe.c_str(), R_OK) == 0;
+            device.writable = access(probe.c_str(), W_OK) == 0;
+
+            devices.push_back(std::move(device));
+        }
+
+        // Keep the order stable, the directory iteration order isn't
+        std::sort(devices.begin(), devices.end(),
+                  [](const Device &a, const Device &b) { return a.name < b.name; });
+
+        return devices;
     }
 
-    bool GetParameterI(const std::string &param_name, int &value) {
-        return GetParameterTy(param_name, value);
+    bool GetParameterF(const std::string &params_dir, const std::string &param_name, float &value) {
+        return GetParameterTy(params_dir + param_name, value);
     }
 
-    bool GetParameterB(const std::string &param_name, bool &value) {
+    bool GetParameterI(const std::string &params_dir, const std::string &param_name, int &value) {
+        return GetParameterTy(params_dir + param_name, value);
+    }
+
+    bool GetParameterB(const std::string &params_dir, const std::string &param_name, bool &value) {
         int temp = 0;
-        bool res = GetParameterTy(param_name, temp);
+        bool res = GetParameterTy(params_dir + param_name, temp);
         value = temp == 1;
         return res;
     }
 
-    bool GetParameterS(const std::string &param_name, std::string &value) {
-        return GetParameterTy(param_name, value);
+    bool GetParameterS(const std::string &params_dir, const std::string &param_name, std::string &value) {
+        return GetParameterTy(params_dir + param_name, value);
     }
 
-    bool CleanParameters(int &fixed_num) {
-        namespace fs = std::filesystem;
+    bool SavePersistentParameters(const Device &device) {
+        // Device names come straight out of the USB descriptors, so quote them before handing
+        // the name to a shell
+        std::string quoted_name = "'";
+        for (char c: device.sysfs_name)
+            quoted_name += (c == '\'') ? "'\\''" : std::string(1, c);
+        quoted_name += "'";
 
-        for (const auto &entry: fs::directory_iterator(YEETMOUSE_PARAMS_DIR)) {
-            std::string str;
-            std::ifstream t(entry.path());
-            if (!t.is_open() || t.bad() || t.fail())
-                return false;
-            std::stringstream buffer;
-            buffer << t.rdbuf();
-            str = buffer.str();
-            //printf("param at %s = %s\n", entry.path().c_str(), str.c_str());
-
-            //std::streampos size = t.tellg();
-            //std::cout << "pos = " << size << std::endl;
-            //t.clear();
-            //t.seekp(0);
-            // I assume this is enough to not leave behind some parts of the old values if the new ones are shorter
-            t.close();
-
-            try {
-                // Integer written with FP64_Shift
-                if (size_t bracket_pos = str.find('('), ll_pos = str.find("ll");
-                    str.find("<< 32") != std::string::npos && bracket_pos != std::string::npos && ll_pos !=
-                    std::string::npos) {
-                    fixed_num++;
-                    std::ofstream o(entry.path());
-                    if (!o.is_open() || o.bad() || o.fail())
-                        return false;
-                    std::string int_str = str.substr(bracket_pos + 1, ll_pos - bracket_pos - 1);
-                    //printf("Clean param: %s\n", int_str.c_str());
-                    o.write(int_str.c_str(), int_str.size());
-                    o.close();
-                } else if (ll_pos != std::string::npos) {
-                    // Floating point represented as a long long
-                    fixed_num++;
-                    size_t start_offset = bracket_pos == std::string::npos ? 0 : (bracket_pos + 1);
-                    std::ofstream o(entry.path());
-                    if (!o.is_open() || o.bad() || o.fail())
-                        return false;
-                    std::string int_str = str.substr(start_offset, ll_pos - start_offset);
-                    FP_LONG fp_val = std::stoll(int_str);
-                    char buf[24];
-                    FP64_ToString(fp_val, buf, 6);
-                    //printf("Clean param: %s, which is %s\n", int_str.c_str(), buf);
-                    o.write(buf, strlen(buf));
-                    o.close();
-                } else {
-                    // Anything else is either 0 or not meant to be a floating point
-                    //printf("Wrong format \\;\n");
-                }
-            } catch (const std::exception &ex) {
-                fprintf(stderr, "Error parsing parameter %s!\n", entry.path().filename().c_str());
-                return false;
-            }
-        }
-
-        // Save the new (clean) parameters. Nothing should change, it just looks nicer.
-        SaveParameters();
-
-        return true;
-    }
-
-    bool SaveParameters() {
-        return SetParameterTy("update", 1);
-    }
-
-    bool SavePersistentParameters() {
-        return std::system("pkexec /usr/bin/yeetmousectl save /etc/yeetmouse.conf") == 0;
-    }
-
-    bool WriteParameterF(const std::string &param_name, float value) {
-        return SetParameterTy(param_name, value);
-    }
-
-    bool WriteParameterI(const std::string &param_name, float value) {
-        return SetParameterTy(param_name, value);
+        const std::string cmd = "pkexec /usr/bin/yeetmousectl save /etc/yeetmouse.conf " + quoted_name;
+        return std::system(cmd.c_str()) == 0;
     }
 
     bool ValidateDirectory() {
         namespace fs = std::filesystem;
-        try {
-            auto dir = fs::directory_entry(YEETMOUSE_PARAMS_DIR);
-            if (!dir.exists())
-                return false;
-        } catch (std::exception &ex) {
-            return false;
-        }
+        std::error_code ec;
 
-        return true;
+        return fs::is_directory(YEETMOUSE_CLASS_DIR, ec);
     }
 
     size_t ParseUserLutData(char *szUser_data, double *out_x, double *out_y, size_t out_size) {
@@ -304,38 +281,38 @@ namespace DriverHelper {
         return idx / 2;
     }
 
-    bool ParseAllParameters(Parameters &params, char *lutUserData) {
+    bool ParseAllParameters(const std::string &params_dir, Parameters &params, char *lutUserData) {
         bool res = true;
-        
-        res &= GetParameterF("Sensitivity", params.sens);
-        res &= GetParameterF("RatioYX", params.ratioYX);
-        res &= GetParameterF("OutputCap", params.outCap);
-        res &= GetParameterF("InputCap", params.inCap);
-        res &= GetParameterF("Offset", params.offset);
-        res &= GetParameterF("Acceleration", params.accel);
-        res &= GetParameterF("Exponent", params.exponent);
-        res &= GetParameterF("Midpoint", params.midpoint);
-        res &= GetParameterF("Motivity", params.motivity);
-        res &= GetParameterF("PreScale", params.preScale);
+
+        res &= GetParameterF(params_dir, "sensitivity", params.sens);
+        res &= GetParameterF(params_dir, "ratio_yx", params.ratioYX);
+        res &= GetParameterF(params_dir, "output_cap", params.outCap);
+        res &= GetParameterF(params_dir, "input_cap", params.inCap);
+        res &= GetParameterF(params_dir, "offset", params.offset);
+        res &= GetParameterF(params_dir, "acceleration", params.accel);
+        res &= GetParameterF(params_dir, "exponent", params.exponent);
+        res &= GetParameterF(params_dir, "midpoint", params.midpoint);
+        res &= GetParameterF(params_dir, "motivity", params.motivity);
+        res &= GetParameterF(params_dir, "prescale", params.preScale);
         int accelMode{};
-        res &= GetParameterI("AccelerationMode", accelMode);
+        res &= GetParameterI(params_dir, "acceleration_mode", accelMode);
         params.accelMode = static_cast<AccelMode>(accelMode);
-        res &= GetParameterB("UseSmoothing", params.useSmoothing);
-        res &= GetParameterI("LutSize", params.lutSize);
-        res &= GetParameterF("RotationAngle", params.rotation);
+        res &= GetParameterB(params_dir, "use_smoothing", params.useSmoothing);
+        res &= GetParameterF(params_dir, "rotation_angle", params.rotation);
         params.rotation /= DEG2RAD;
-        res &= GetParameterF("AngleSnap_Threshold", params.asThreshold);
+        res &= GetParameterF(params_dir, "angle_snap_threshold", params.asThreshold);
         params.asThreshold /= DEG2RAD;
-        res &= GetParameterF("AngleSnap_Angle", params.asAngle);
+        res &= GetParameterF(params_dir, "angle_snap_angle", params.asAngle);
         params.asAngle /= DEG2RAD;
         std::string Lut_dataBuf;
-        res &= GetParameterS("LutDataBuf", Lut_dataBuf);
+        res &= GetParameterS(params_dir, "lut_data", Lut_dataBuf);
         Lut_dataBuf.copy(lutUserData, MAX_LUT_BUF_LEN-1, 0);
-        ParseDriverLutData(Lut_dataBuf.c_str(), params.lutDataX, params.lutDataY);
+        // The driver only stores the pairs themselves, the count comes back out of the data
+        params.lutSize = ParseDriverLutData(Lut_dataBuf.c_str(), params.lutDataX, params.lutDataY);
 
         // Load custom curve data
         Lut_dataBuf.clear();
-        if (res &= GetParameterS("_CustomCurveDataAggregate", Lut_dataBuf)) {
+        if (res &= GetParameterS(params_dir, "cc_data_aggregate", Lut_dataBuf)) {
             CustomCurve dummy_curve;
             if (!dummy_curve.ImportCustomCurve(Lut_dataBuf) && params.accelMode == AccelMode_CustomCurve) {
                 fprintf(stderr, "Could not load custom curve data\n");
@@ -352,7 +329,7 @@ namespace DriverHelper {
         return res;
     }
 
-    std::string EncodeLutData(double *data_x, double *data_y, size_t size, bool strict_format) {
+    std::string EncodeLutData(const double *data_x, const double *data_y, size_t size, bool strict_format) {
         std::stringstream res;
         res << std::setprecision(LUT_EXPORT_PRECISION);
 
@@ -371,49 +348,44 @@ namespace DriverHelper {
 //                                                                           midpoint(midpoint), scrollAccel(scrollAccel),
 //                                                                           accelMode(accelMode) {}
 
-bool Parameters::SaveAll(bool auto_update) {
+bool Parameters::SaveAll(const std::string &params_dir) const {
     bool res = true;
 
     // LUT
     auto encodedLutData = DriverHelper::EncodeLutData(lutDataX, lutDataY, lutSize);
     if (!encodedLutData.empty() && encodedLutData.size() < MAX_LUT_BUF_LEN) {
-        res &= SetParameterTy("LutSize", lutSize);
-        //res &= SetParameterTy("LutStride", LUT_stride);
-        //printf("encoded: %s, size: %zu, stride: %i\n", encoded.c_str(), LUT_size, LUT_stride);
-        res &= SetParameterTy("LutDataBuf", encodedLutData);
+        res &= SetParameterTy(params_dir + "lut_data", encodedLutData);
     } else if (accelMode == AccelMode_Lut || accelMode == AccelMode_CustomCurve)
         return false;
 
     // Custom Curve
     auto encodedCCData = customCurve.ExportCustomCurve();
     if (!encodedCCData.empty() && encodedCCData.size() < MAX_LUT_BUF_LEN) {
-        res &= SetParameterTy("_CustomCurveDataAggregate", encodedCCData);
+        res &= SetParameterTy(params_dir + "cc_data_aggregate", encodedCCData);
     }
     else if (accelMode == AccelMode_CustomCurve)
         return false;
 
     // General
-    res &= SetParameterTy("Sensitivity", sens);
-    res &= SetParameterTy("RatioYX", useAnisotropy ? ratioYX : 1);
-    res &= SetParameterTy("OutputCap", outCap);
-    res &= SetParameterTy("InputCap", inCap);
-    res &= SetParameterTy("Offset", offset);
-    res &= SetParameterTy("RotationAngle", rotation * DEG2RAD);
-    res &= SetParameterTy("AngleSnap_Threshold", asThreshold * DEG2RAD);
-    res &= SetParameterTy("AngleSnap_Angle", asAngle * DEG2RAD);
+    res &= SetParameterTy(params_dir + "sensitivity", sens);
+    res &= SetParameterTy(params_dir + "ratio_yx", useAnisotropy ? ratioYX : 1);
+    res &= SetParameterTy(params_dir + "output_cap", outCap);
+    res &= SetParameterTy(params_dir + "input_cap", inCap);
+    res &= SetParameterTy(params_dir + "offset", offset);
+    res &= SetParameterTy(params_dir + "rotation_angle", rotation * DEG2RAD);
+    res &= SetParameterTy(params_dir + "angle_snap_threshold", asThreshold * DEG2RAD);
+    res &= SetParameterTy(params_dir + "angle_snap_angle", asAngle * DEG2RAD);
 
     // Specific
-    res &= SetParameterTy("Acceleration", accel);
-    res &= SetParameterTy("Exponent", exponent);
-    res &= SetParameterTy("Midpoint", midpoint);
-    res &= SetParameterTy("Motivity", motivity);
-    res &= SetParameterTy("PreScale", preScale);
-    res &= SetParameterTy("UseSmoothing", useSmoothing);
+    res &= SetParameterTy(params_dir + "acceleration", accel);
+    res &= SetParameterTy(params_dir + "exponent", exponent);
+    res &= SetParameterTy(params_dir + "midpoint", midpoint);
+    res &= SetParameterTy(params_dir + "motivity", motivity);
+    res &= SetParameterTy(params_dir + "prescale", preScale);
+    res &= SetParameterTy(params_dir + "use_smoothing", useSmoothing);
 
-    res &= SetParameterTy("AccelerationMode", accelMode);
-
-    if (res && auto_update)
-        res &= DriverHelper::SaveParameters();
+    // Written last, the driver falls back to the current mode if the curve it needs is missing
+    res &= SetParameterTy(params_dir + "acceleration_mode", accelMode);
 
     return res;
 }

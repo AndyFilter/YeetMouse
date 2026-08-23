@@ -3,13 +3,16 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 #include <filesystem>
 #include <algorithm>
 
 #include "CustomCurve.h"
 #include "../shared_definitions.h"
 
-#define YEETMOUSE_PARAMS_DIR "/sys/module/yeetmouse/parameters/"
+// Every mouse the driver attached to gets its own directory here, holding an `accel_config` group
+#define YEETMOUSE_CLASS_DIR "/sys/class/yeetmouse/"
+#define YEETMOUSE_DEVICE_PARAMS_SUBDIR "accel_config"
 
 #define MAX_LUT_ARRAY_SIZE 128  // THIS NEEDS TO BE THE SAME AS IN THE DRIVER CODE
 #define MAX_LUT_BUF_LEN 4096
@@ -19,23 +22,33 @@
 
 struct Parameters;
 
+struct Device {
+    std::string sysfs_name; // Directory name under YEETMOUSE_CLASS_DIR (device name with spaces replaced by '_')
+    std::string name; // Name as reported by the input device, meant to be displayed to the user
+    std::string params_dir; // Absolute path of the device's parameter directory (with a trailing '/')
+    bool readable = false; // Whether the parameters can be read (requires the 'yeetmouse' group)
+    bool writable = false; // Whether the parameters can be written to
+};
+
 namespace DriverHelper {
-    bool GetParameterF(const std::string &param_name, float &value);
-    bool GetParameterI(const std::string &param_name, int &value);
-    bool GetParameterB(const std::string &param_name, bool &value);
-    bool GetParameterS(const std::string &param_name, std::string &value);
+    /// Lists every mouse the driver is currently attached to, sorted by name.
+    /// Returns an empty vector when the driver isn't loaded.
+    std::vector<Device> DiscoverDevices();
 
-    bool WriteParameterF(const std::string &param_name, float value);
-    bool WriteParameterI(const std::string &param_name, float value);
+    /// Every parameter is read from and written to `params_dir` of the device it belongs to.
+    /// The driver applies a parameter as soon as it is written, no separate update is needed.
+    bool GetParameterF(const std::string &params_dir, const std::string &param_name, float &value);
+    bool GetParameterI(const std::string &params_dir, const std::string &param_name, int &value);
+    bool GetParameterB(const std::string &params_dir, const std::string &param_name, bool &value);
+    bool GetParameterS(const std::string &params_dir, const std::string &param_name, std::string &value);
 
-    bool SaveParameters();
+    bool WriteParameterF(const std::string &params_dir, const std::string &param_name, float value);
+    bool WriteParameterI(const std::string &params_dir, const std::string &param_name, float value);
 
-    bool SavePersistentParameters();
+    /// Stores the driver configuration of `device` in /etc/yeetmouse.conf, asks for root privileges
+    bool SavePersistentParameters(const Device &device);
 
     bool ValidateDirectory();
-
-    /// Converts the ugly FP64 representation of user parameters to nice floating point values
-    bool CleanParameters(int &fixed_num);
 
     /// Returns the number of parsed values
     size_t ParseUserLutData(char *user_data, double *out_x, double *out_y, size_t out_size);
@@ -43,10 +56,10 @@ namespace DriverHelper {
     /// Returns the number of parsed values
     size_t ParseDriverLutData(const char *user_data, double *out_x, double *out_y);
 
-    /// Reads all driver parameters
-    bool ParseAllParameters(Parameters& params, char *lutUserData);
+    /// Reads all parameters of a single device
+    bool ParseAllParameters(const std::string &params_dir, Parameters& params, char *lutUserData);
 
-    std::string EncodeLutData(double *data_x, double *data_y, size_t size, bool strict_format = true);
+    std::string EncodeLutData(const double *data_x, const double *data_y, size_t size, bool strict_format = true);
 } // DriverHelper
 
 inline std::string AccelMode2String(AccelMode mode) {
@@ -223,7 +236,8 @@ struct Parameters {
     //Parameters(float sens, float sensCap, float speedCap, float offset, float accel, float exponent, float midpoint,
     //           float scrollAccel, int accelMode);
 
-    bool SaveAll(bool auto_update = true);
+    /// Writes every parameter to a single device, applied by the driver as they are written
+    bool SaveAll(const std::string &params_dir) const;
 };
 
 #endif //YEETMOUSE_DRIVERHELPER_H

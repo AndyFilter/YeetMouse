@@ -15,6 +15,12 @@ extern "C" {
 #include <limits.h>
 #include <stdbool.h>
 #define printk printf
+#define ktime_t signed long long
+struct callback_head {
+    struct callback_head *next;
+    void (*func)(struct callback_head *head);
+} __attribute__((aligned(sizeof(void *))));
+#define rcu_head callback_head
 
 #include <driver/FixedMath/Fixed64.h>
 static float FP64_ToFloat(FP_LONG v) {

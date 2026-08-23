@@ -33,8 +33,8 @@
 
 // Include numeric types
 #include <linux/types.h>
-#include "FixedUtil.h"
 #include <linux/kernel.h>
+#include "FixedUtil.h"
 
 
 // If FP_ASSERT is not custom-defined, then use the standard one

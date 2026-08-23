@@ -3,6 +3,11 @@
 #ifndef SHARED_DEFINITIONS_H
 #define SHARED_DEFINITIONS_H
 
+#define SYNC_START (-3)
+#define SYNC_STOP (9)
+#define SYNC_NUM (8)
+#define SYNC_CAPACITY ((SYNC_STOP - SYNC_START) * SYNC_NUM + 1)
+
 enum AccelMode {
     AccelMode_Current = 0, // Mainly used in GUI, denotes lack of a curve on the driver side
     AccelMode_Linear = 1,
@@ -16,5 +21,4 @@ enum AccelMode {
     AccelMode_CustomCurve = 9,
     AccelMode_Count,
 };
-
 #endif

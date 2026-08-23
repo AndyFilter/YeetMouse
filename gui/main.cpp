@@ -9,6 +9,7 @@
 #include "ConfigHelper.h"
 #include <chrono>
 #include <fstream>
+#include <map>
 #include <vector>
 #include <unistd.h>
 #include <GLFW/glfw3.h>
@@ -43,13 +44,24 @@ bool has_privilege = false;
 
 static char LUT_user_data[MAX_LUT_BUF_LEN];
 
+Device active_device; // The device every parameter below is read from and written to
+
 void ResetParameters();
 void ApplyImportedParameters(Parameters cur_params[NUM_MODES], const Parameters& imported_params);
 void DroppedFilesCallback(GLFWwindow* window, int path_count, const char* paths[]);
+static bool SelectDevice(const Device &device);
 
-#define RefreshDevices() {devices = DriverHelper::DiscoverDevices(); \
-                            if(selected_device >= devices.size())    \
-                            selected_device = devices.size() - 1;}
+/// Re-reads the device list and returns the index the selection should move to. Mice come and go
+/// while the GUI is running, so the active device is looked up by name instead of by index.
+static int RefreshDevices(std::vector<Device> &devices) {
+    devices = DriverHelper::DiscoverDevices();
+
+    for (int i = 0; i < (int) devices.size(); i++)
+        if (devices[i].sysfs_name == active_device.sysfs_name)
+            return i;
+
+    return devices.empty() ? -1 : 0;
+}
 
 static int OnGui() {
     using namespace std::chrono;
@@ -122,11 +134,70 @@ static int OnGui() {
     /* ---------------------------- LEFT MODES WINDOW ---------------------------- */
     ImGui::SetNextWindowSizeConstraints({220, 0}, {FLT_MAX, FLT_MAX});
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-    if (ImGui::BeginChild("Modes", ImVec2(220, 0), ImGuiChildFlags_FrameStyle)) {
+    if (ImGui::BeginChild("Devices and modes", ImVec2(220, 0), ImGuiChildFlags_FrameStyle)) {
         ImGui::PopStyleColor();
         ImGui::Spacing();
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {12, 12});
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {12, 12});
+
+        static int selected_device = -1;
+        static std::vector<Device> devices;
+        // Enabling a device per se isn't supported by the driver yet, so this is only a GUI state for now.
+        // Keyed by the sysfs name, so it survives devices being (un)plugged.
+        static std::map<std::string, bool> enabled_devices;
+        static steady_clock::time_point last_devices_refresh;
+
+        // Scanning sysfs every frame would be wasteful
+        if (steady_clock::now() - last_devices_refresh >= 1s) {
+            selected_device = RefreshDevices(devices);
+            last_devices_refresh = steady_clock::now();
+
+            if (selected_device < 0)
+                has_privilege = false;
+            else if (devices[selected_device].sysfs_name != active_device.sysfs_name)
+                SelectDevice(devices[selected_device]); // Our device is gone, follow the driver
+            else
+                has_privilege = devices[selected_device].writable;
+        }
+
+        // Device selection
+        ImGui::SeparatorText("Device");
+        ImGui::SetNextItemWidth(-1);
+        ImGui::BeginDisabled(devices.empty());
+        if (ImGui::BeginCombo("##Select device",
+                              selected_device >= 0 ? devices[selected_device].name.c_str() : "No devices found")) {
+            for (int i = 0; i < (int) devices.size(); i++) {
+                const Device &device = devices[i];
+                bool is_selected = (i == selected_device);
+                // Devices are inserted as enabled, the checkbox keeps its address stable afterwards
+                bool &is_enabled = enabled_devices.try_emplace(device.sysfs_name, true).first->second;
+                ImGui::PushID(i);
+
+                ImGui::PopStyleVar(); // Pop the style to avoid huge checkboxes
+                ImGui::Checkbox("##Device_Checkbox", &is_enabled);
+                ImGui::SameLine();
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {12, 12});
+
+                ImGui::BeginDisabled(!is_enabled || !device.writable);
+
+                if (ImGui::Selectable(device.name.c_str(), is_selected) && !is_selected) {
+                    selected_device = i;
+                    SelectDevice(device);
+                }
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
+
+                ImGui::EndDisabled();
+
+                if (!device.writable && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Missing permissions to configure this device");
+
+                ImGui::PopID();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::EndDisabled();
+
         ImGui::SeparatorText("Mode Selection");
         for (int i = 1; i < NUM_MODES; i++) {
             const char *accel = AccelModes[i];
@@ -1130,7 +1201,8 @@ static int OnGui() {
                              !functions[selected_mode].isValid);
 
         if (ImGui::Button("Apply", {avail.x / 3 - (ImGui::GetStyle().ItemSpacing.x * 2), -1})) {
-            params[selected_mode].SaveAll();
+            if (!params[selected_mode].SaveAll(active_device.params_dir))
+                fprintf(stderr, "Failed to apply the parameters to %s\n", active_device.name.c_str());
             functions[0] = functions[selected_mode];
             params[0] = params[selected_mode];
             used_mode = selected_mode;
@@ -1143,11 +1215,13 @@ static int OnGui() {
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColor::HSV(0.3, 0.7, 0.8).Value);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColor::HSV(0.3, 0.67, 0.83).Value);
         if (ImGui::Button("Apply + Save", {-1, -1})) {
-            params[selected_mode].SaveAll(false);
-            if (!DriverHelper::SavePersistentParameters())
+            // The driver applies each parameter as it is written, so the config file is dumped
+            // back out of the device afterwards
+            if (!params[selected_mode].SaveAll(active_device.params_dir))
+                fprintf(stderr, "Failed to apply the parameters to %s\n", active_device.name.c_str());
+            if (!DriverHelper::SavePersistentParameters(active_device))
                 fprintf(stderr, "Failed to save parameters in /etc/yeetmouse.conf\n");
             else {
-                DriverHelper::SaveParameters();
                 functions[0] = functions[selected_mode];
                 params[0] = params[selected_mode];
                 used_mode = selected_mode;
@@ -1186,6 +1260,24 @@ static int OnGui() {
 }
 
 Parameters start_params;
+
+static bool SelectDevice(const Device &device) {
+    active_device = device;
+    has_privilege = device.writable;
+
+    if (!DriverHelper::ParseAllParameters(device.params_dir, start_params, LUT_user_data)) {
+        fprintf(stderr, "Could not read the parameters of %s\n", device.name.c_str());
+        was_initialized = false;
+        return false;
+    }
+
+    used_mode = start_params.accelMode;
+    selected_mode = static_cast<AccelMode>(start_params.accelMode % NUM_MODES);
+    was_initialized = true;
+
+    ResetParameters();
+    return true;
+}
 
 void ResetParameters(void) {
     for (int mode = 0; mode < NUM_MODES; mode++) {
@@ -1280,16 +1372,6 @@ int main() {
 
     ImGui::GetIO().IniFilename = nullptr;
 
-    std::ifstream driver_update_file(YEETMOUSE_PARAMS_DIR "update");
-    if (!driver_update_file.is_open()) {
-        fprintf(stderr, "You are not added to the 'yeetmouse' group, re-login before using the GUI!\n");
-        has_privilege = false;
-        //return 1;
-    } else
-        has_privilege = true;
-
-    driver_update_file.close();
-
     if (!DriverHelper::ValidateDirectory()) {
         fprintf(stderr,
                 "YeetMouse directory doesnt exist!\nInstall the driver first, or check the parameters path.\n");
@@ -1299,22 +1381,14 @@ int main() {
     // Register file drag and drop
     glfwSetDropCallback(GUI::window, DroppedFilesCallback);
 
-    int fixed_num = 0;
-    if (!DriverHelper::CleanParameters(fixed_num) && fixed_num != 0 && !has_privilege) {
-        fprintf(stderr, "Could not setup driver params\n");
-    } else {
-        // Read driver parameters to a dummy aggregate
-        DriverHelper::ParseAllParameters(start_params, LUT_user_data);
+    auto devices = DriverHelper::DiscoverDevices();
+    if (devices.empty())
+        fprintf(stderr, "The driver is loaded, but is not attached to any mouse\n");
+    else if (!SelectDevice(devices.front()))
+        fprintf(stderr, "You are not added to the 'yeetmouse' group, re-login before using the GUI!\n");
 
-        used_mode = start_params.accelMode;
-
-        selected_mode = static_cast<AccelMode>(start_params.accelMode % NUM_MODES);
-
-        was_initialized = true;
-    }
-
-
-    ResetParameters();
+    if (!was_initialized)
+        ResetParameters();
 
 
     while (true) {

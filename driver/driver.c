@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/version.h>
 #include <linux/usb/input.h>
 
@@ -74,7 +75,7 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     state->x = NONE_EVENT_VALUE;
     state->y = NONE_EVENT_VALUE;
     /* Deal with leftover EV_REL events we should take into account for the next run */
-    for (v = v_syn; v != vals + count; v++) {
+    for (v = v_syn + 1; v != vals + count; v++) {
         if (v->type == EV_REL) {
             /* Store values for next runthrough */
             switch (v->code) {
@@ -92,14 +93,18 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     if (error)
         goto unchanged_return;
 
-    /* Apply updates after we've captured events for the next run */
-    for (v = (struct input_value *) vals; v != vals + count; v++) {
+    /* Apply updates up to v_syn without clobbering v_syn or trailing events */
+    for (v = (struct input_value *) vals; v != v_syn; v++) {
         if (v->type == EV_REL) {
             switch (v->code) {
                 case REL_X:
+                    if (__cleanup_events && x == NONE_EVENT_VALUE)
+                        continue;
                     v->value = x;
                     break;
                 case REL_Y:
+                    if (__cleanup_events && y == NONE_EVENT_VALUE)
+                        continue;
                     v->value = y;
                     break;
                 default: break;
@@ -111,29 +116,48 @@ static void driver_events(struct input_handle *handle, const struct input_value 
     }
 
 #if __cleanup_events
-    /* Inject missing axes if needed */
-    if (x != NONE_EVENT_VALUE && !seen_x && (unsigned int) (end - vals) < dev->max_vals) {
-        end->type = EV_REL;
-        end->code = REL_X;
-        end->value = x;
-        end++;
-    }
-    if (y != NONE_EVENT_VALUE && !seen_y && (unsigned int) (end - vals) < dev->max_vals) {
-        end->type = EV_REL;
-        end->code = REL_Y;
-        end->value = y;
-        end++;
-    }
+    {
+        unsigned int inject_x = (x != NONE_EVENT_VALUE && !seen_x) ? 1 : 0;
+        unsigned int inject_y = (y != NONE_EVENT_VALUE && !seen_y) ? 1 : 0;
+        unsigned int tail_len = (unsigned int) ((vals + count) - v_syn);
+        unsigned int prefix_len = (unsigned int) (end - vals);
 
-    /* Copy the SYN we broke on */
-    if (end != v_syn) {
-        *end = *v_syn;
-        end++;
+        if (prefix_len + inject_x + inject_y + tail_len > dev->max_vals) {
+            inject_x = 0;
+            inject_y = 0;
+        }
+
+        if (end + inject_x + inject_y != v_syn)
+            memmove(end + inject_x + inject_y, v_syn, tail_len * sizeof(*v_syn));
+
+        /* Inject missing axes strictly before SYN_REPORT */
+        if (inject_x) {
+            end->type = EV_REL;
+            end->code = REL_X;
+            end->value = x;
+            end++;
+        }
+        if (inject_y) {
+            end->type = EV_REL;
+            end->code = REL_Y;
+            end->value = y;
+            end++;
+        }
+
+        end += tail_len;
     }
-#endif
 
     out_count = end - vals;
     dev->num_vals = out_count;
+#else
+    /* Preserve v_syn and trailing events untouched on older kernels */
+    if (end != v_syn) {
+        unsigned int tail_len = (unsigned int) ((vals + count) - v_syn);
+        memmove(end, v_syn, tail_len * sizeof(*v_syn));
+        end += tail_len;
+    }
+    dev->num_vals = end - vals;
+#endif
     /* NOTE: Technically, we can also stop iterating over `vals` when we find EV_SYN, apply acceleration,
      * then restart in a loop until we reach the end of `vals` to handle multiple EV_SYN events per batch.
      * However, that's not necessary since we can assume that all events in `vals` apply to the same moment

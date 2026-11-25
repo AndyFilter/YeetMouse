@@ -166,12 +166,8 @@ INLINE void update_params(ktime_t now)
 int accelerate(int *x, int *y)
 {
     FP_LONG delta_x, delta_y, ms, speed;
-    //static long buffer_x = 0;
-    //static long buffer_y = 0;
-    //Static float assignment should happen at compile-time and thus should be safe here. However, avoid non-static assignment of floats outside kernel_fpu_begin()/kernel_fpu_end()
     static FP_LONG carry_x = 0;
     static FP_LONG carry_y = 0;
-    //static FP_LONG carry_whl = 0;
     static FP_LONG last_ms = One;
     static ktime_t last;
     ktime_t now;
@@ -179,33 +175,28 @@ int accelerate(int *x, int *y)
 
     delta_x = FP64_FromInt(*x);
     delta_y = FP64_FromInt(*y);
-    //delta_whl = FP64_FromInt(*wheel);
-
-    //Add buffer values, if present, and reset buffer
-    //delta_x = FP64_Add(delta_x, FP64_FromInt((int) buffer_x)); buffer_x = 0;
-    //delta_y = FP64_Add(delta_y, FP64_FromInt((int) buffer_y)); buffer_y = 0;
 
     //Calculate frametime
     now = ktime_get(); // ns
-    long long dt = (now - last);
-    //int frac = dt % 10000;
-    // We can't just store milliseconds as this would lose a lot of precision (nano -> mili, that's 10^-6 difference).
-    // But we have only Q16.16 bits of precision, meaning 16 bits for the fractional part of the number (it's constant!).
-    // So it would be wasteful to store a millisecond in a fixed point format, because the integral part would be at max like 100
-    // and we would lose all the precision on the fractional part, so we move everything storing millis * 100.
-    // Now we have at max 10000 to store in the integral part (technically 0xFFFF) and a bit less information in the fractional part
-    // that would be lost either way.
-    /// THE ABOVE NO LONGER HOLDS, AS I'VE MOVED (AGAIN), THIS TIME TO 64bit FIXED POINT MATH
-    //ms = FP64_FromInt(dt / 10000ll) + FP64_Div(FP64_FromInt(frac), fp64_10000); // NOT MILLISECONDS, its ms * 100
-    ms = FP64_DivPrecise(FP64_FromInt(dt), FP64_FromInt(1000000));
+    if (last == 0) {
+        ms = FP64_100;
+    } else {
+        s64 dt = ktime_to_ns(ktime_sub(now, last));
+        if (dt <= 0) {
+            ms = last_ms;
+        } else if (dt >= 100000000LL) {
+            // Clamp before FP64_FromInt (32-bit int) to prevent 2.15s/4.3s overflow/wraparound
+            ms = FP64_100;
+        } else if (dt < 100000LL) {
+            // Guard against sub-0.1ms USB URB bunching causing sudden velocity spikes
+            ms = (last_ms < FP64_10) ? last_ms : FP64_1;
+        } else {
+            ms = FP64_DivPrecise(FP64_FromInt((FP_INT)dt), FP64_FromInt(1000000));
+        }
+    }
     last = now;
-    //if(ms < 1) ms = last_ms;    //Sometimes, urbs appear bunched -> Beyond µs resolution so the timing reading is plain wrong. Fallback to last known valid frametime
-    // Editor node: I have no idea, what this line above really does, but commenting it out solves all my problems
-    // with incorrect data. It seems that it tries to fix a problem that doesn't exist, or doesn't exist on my
-    // specific setup (PC / System / Mice)
+    if (ms < FP64_0_1) ms = FP64_0_1;
     if (ms > FP64_100) ms = FP64_100;
-
-    //if(ms > 100) ms = 100;      //Original InterAccel has 200 here. RawAccel rounds to 100. So do we.
     last_ms = ms;
 
     // Update acceleration parameters periodically
